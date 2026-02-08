@@ -15,6 +15,9 @@ services:
       APP_URL: https://omsimsocial.com
       DB_HOST: postgres
       REDIS_HOST: redis
+      REVERB_HOST: reverb
+      REVERB_PORT: 8080
+      REVERB_SCHEME: http
       REVERB_SERVER_HOST: 0.0.0.0
     volumes:
       # Persist uploads on the VPS host (set OMSIM_STORAGE_PATH in .env).
@@ -36,6 +39,9 @@ services:
     environment:
       DB_HOST: postgres
       REDIS_HOST: redis
+      REVERB_HOST: reverb
+      REVERB_PORT: 8080
+      REVERB_SCHEME: http
     command: ["php", "artisan", "queue:work", "--tries=3", "--max-time=3600"]
     volumes:
       - ${OMSIM_STORAGE_PATH:-./backend/storage}:/var/www/html/storage
@@ -56,6 +62,9 @@ services:
     environment:
       DB_HOST: postgres
       REDIS_HOST: redis
+      REVERB_HOST: reverb
+      REVERB_PORT: 8080
+      REVERB_SCHEME: http
       REVERB_SERVER_HOST: 0.0.0.0
     command: ["php", "artisan", "reverb:start"]
     ports:
