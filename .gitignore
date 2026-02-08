@@ -53,13 +53,13 @@ mobile/dist/
 mobile/web-build/
 
 # Root scaffold (project uses mobile/ instead)
-App.tsx
-app.json
-assets/
-index.ts
-package.json
-package-lock.json
-tsconfig.json
+/App.tsx
+/app.json
+/assets/
+/index.ts
+/package.json
+/package-lock.json
+/tsconfig.json
 
 # typescript
 *.tsbuildinfo

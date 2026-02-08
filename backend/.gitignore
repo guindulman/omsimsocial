@@ -16,6 +16,7 @@
 /public/build
 /public/hot
 /public/storage
+/public/assets/Mobile-preview.mp4
 /storage/*.key
 /storage/pail
 /vendor
