@@ -41,7 +41,8 @@ return [
         'public' => [
             'driver' => 'local',
             'root' => storage_path('app/public'),
-            'url' => rtrim(env('APP_URL'), '/').'/storage',
+            // Cast to string to avoid PHP 8.3 deprecation when APP_URL is unset at build time.
+            'url' => rtrim((string) env('APP_URL'), '/').'/storage',
             'visibility' => 'public',
             'throw' => false,
             'report' => false,

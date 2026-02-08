@@ -43,6 +43,10 @@ COPY composer.json composer.lock ./
 RUN composer install --no-dev --no-scripts --no-autoloader --prefer-dist
 
 COPY . .
+# Laravel expects this directory for package discovery cache during build.
+RUN mkdir -p bootstrap/cache storage/framework/{cache,sessions,views} \
+    && chown -R www-data:www-data bootstrap/cache storage \
+    && chmod -R 775 bootstrap/cache storage
 RUN composer dump-autoload --optimize
 
 RUN npm ci && npm run build
