@@ -7,6 +7,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     image: omsimsocial-app:latest
+    pull_policy: never
     container_name: omsimsocial-app
     restart: unless-stopped
     env_file: ./backend/.env
@@ -28,6 +29,7 @@ services:
 
   queue:
     image: omsimsocial-app:latest
+    pull_policy: never
     container_name: omsimsocial-queue
     restart: unless-stopped
     env_file: ./backend/.env
@@ -47,6 +49,7 @@ services:
 
   reverb:
     image: omsimsocial-app:latest
+    pull_policy: never
     container_name: omsimsocial-reverb
     restart: unless-stopped
     env_file: ./backend/.env
