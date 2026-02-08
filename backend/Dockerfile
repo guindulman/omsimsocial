@@ -49,7 +49,9 @@ RUN mkdir -p bootstrap/cache storage/framework/{cache,sessions,views} \
     && chmod -R 775 bootstrap/cache storage
 RUN composer dump-autoload --optimize
 
-RUN npm ci && npm run build
+RUN npm install --no-audit --no-fund \
+    && npm run build \
+    && rm -rf node_modules
 
 # ---- Production image ----
 FROM base AS production
