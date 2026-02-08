@@ -1,7 +1,8 @@
 <?php
 
 return [
-    'default' => env('BROADCAST_CONNECTION', 'pusher'),
+    // Default to a safe no-op driver when BROADCAST_CONNECTION is not set (e.g. during Docker image builds).
+    'default' => env('BROADCAST_CONNECTION', 'log'),
 
     'connections' => [
         'reverb' => [
