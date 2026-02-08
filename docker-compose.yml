@@ -35,6 +35,7 @@ services:
     image: omsimsocial-app:latest
     pull_policy: never
     container_name: omsimsocial-queue
+    user: "82:82" # www-data in alpine (avoid root-owned storage/log files)
     restart: unless-stopped
     env_file: ./backend/.env
     environment:
@@ -58,6 +59,7 @@ services:
     image: omsimsocial-app:latest
     pull_policy: never
     container_name: omsimsocial-reverb
+    user: "82:82" # www-data in alpine (avoid root-owned storage/log files)
     restart: unless-stopped
     env_file: ./backend/.env
     environment:
