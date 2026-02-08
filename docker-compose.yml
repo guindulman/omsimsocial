@@ -16,7 +16,8 @@ services:
       REDIS_HOST: redis
       REVERB_SERVER_HOST: 0.0.0.0
     volumes:
-      - ./backend/storage:/var/www/html/storage
+      # Persist uploads on the VPS host (set OMSIM_STORAGE_PATH in .env).
+      - ${OMSIM_STORAGE_PATH:-./backend/storage}:/var/www/html/storage
     ports:
       - "8000:80"
     depends_on:
@@ -35,7 +36,7 @@ services:
       REDIS_HOST: redis
     command: ["php", "artisan", "queue:work", "--tries=3", "--max-time=3600"]
     volumes:
-      - ./backend/storage:/var/www/html/storage
+      - ${OMSIM_STORAGE_PATH:-./backend/storage}:/var/www/html/storage
     depends_on:
       app:
         condition: service_started
@@ -57,7 +58,7 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - ./backend/storage:/var/www/html/storage
+      - ${OMSIM_STORAGE_PATH:-./backend/storage}:/var/www/html/storage
     depends_on:
       app:
         condition: service_started

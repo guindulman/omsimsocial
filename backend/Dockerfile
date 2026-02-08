@@ -45,7 +45,6 @@ RUN composer install --no-dev --no-scripts --no-autoloader --prefer-dist
 COPY . .
 RUN composer dump-autoload --optimize
 
-COPY package.json package-lock.json vite.config.js ./
 RUN npm ci && npm run build
 
 # ---- Production image ----
