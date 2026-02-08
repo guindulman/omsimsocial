@@ -23,7 +23,8 @@ RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
     intl \
     opcache \
     sockets \
-    gd
+    gd \
+    pcntl
 
 # Redis for cache/sessions
 RUN pecl install redis && docker-php-ext-enable redis
