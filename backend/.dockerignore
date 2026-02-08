@@ -1,0 +1,36 @@
+# Dependencies (installed in image)
+/node_modules
+/vendor
+
+# Env and secrets
+.env
+.env.*
+!.env.example
+
+# Git and IDE
+.git
+.gitignore
+.idea
+.vscode
+*.md
+
+# Build artifacts
+/public/build
+/public/hot
+
+# Storage and logs (mounted at runtime)
+/storage/*.key
+/storage/pail
+/storage/logs/*
+/storage/framework/cache/data/*
+/storage/framework/sessions/*
+/storage/framework/views/*
+
+# Tests and dev
+/tests
+.phpunit.result.cache
+phpunit.xml
+
+# Docker (don’t copy into image)
+Dockerfile
+.dockerignore

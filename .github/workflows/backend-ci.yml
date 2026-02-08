@@ -1,0 +1,77 @@
+name: Backend CI
+
+on:
+  push:
+    paths:
+      - "backend/**"
+      - ".github/workflows/backend-ci.yml"
+  pull_request:
+    paths:
+      - "backend/**"
+      - ".github/workflows/backend-ci.yml"
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          extensions: mbstring, pdo_pgsql, pgsql, dom, fileinfo, curl
+          coverage: none
+
+      - name: Install Composer Dependencies
+        working-directory: backend
+        run: composer install --no-interaction --prefer-dist
+
+      - name: Prepare App Key
+        working-directory: backend
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      - name: Create Test Database
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+          psql -h localhost -U postgres -d postgres -c "CREATE DATABASE omsim_test;"
+        env:
+          PGPASSWORD: postgres
+
+      - name: Run Tests
+        working-directory: backend
+        env:
+          APP_ENV: testing
+          DB_CONNECTION: pgsql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 5432
+          DB_DATABASE: omsim_test
+          DB_USERNAME: postgres
+          DB_PASSWORD: postgres
+          CACHE_STORE: array
+          SESSION_DRIVER: array
+          QUEUE_CONNECTION: sync
+          BROADCAST_CONNECTION: "null"
+          MAIL_MAILER: array
+        run: php artisan test
+

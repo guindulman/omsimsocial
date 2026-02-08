@@ -1,0 +1,30 @@
+name: Mobile CI
+
+on:
+  push:
+    paths:
+      - "mobile/**"
+      - ".github/workflows/mobile-ci.yml"
+  pull_request:
+    paths:
+      - "mobile/**"
+      - ".github/workflows/mobile-ci.yml"
+
+jobs:
+  install:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Install Dependencies
+        working-directory: mobile
+        run: npm ci

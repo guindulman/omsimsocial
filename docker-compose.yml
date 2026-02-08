@@ -1,0 +1,98 @@
+# omsimsocial.com - Docker Compose
+# Laravel API + PostgreSQL + Redis + Queue + Reverb
+
+services:
+  app:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: omsimsocial-app:latest
+    container_name: omsimsocial-app
+    restart: unless-stopped
+    env_file: ./backend/.env
+    environment:
+      APP_URL: https://omsimsocial.com
+      DB_HOST: postgres
+      REDIS_HOST: redis
+      REVERB_SERVER_HOST: 0.0.0.0
+    volumes:
+      - ./backend/storage:/var/www/html/storage
+    ports:
+      - "8000:80"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  queue:
+    image: omsimsocial-app:latest
+    container_name: omsimsocial-queue
+    restart: unless-stopped
+    env_file: ./backend/.env
+    environment:
+      DB_HOST: postgres
+      REDIS_HOST: redis
+    command: ["php", "artisan", "queue:work", "--tries=3", "--max-time=3600"]
+    volumes:
+      - ./backend/storage:/var/www/html/storage
+    depends_on:
+      app:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  reverb:
+    image: omsimsocial-app:latest
+    container_name: omsimsocial-reverb
+    restart: unless-stopped
+    env_file: ./backend/.env
+    environment:
+      DB_HOST: postgres
+      REDIS_HOST: redis
+      REVERB_SERVER_HOST: 0.0.0.0
+    command: ["php", "artisan", "reverb:start"]
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./backend/storage:/var/www/html/storage
+    depends_on:
+      app:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: omsimsocial-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-omsimsocial}
+      POSTGRES_USER: ${DB_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-postgres} -d ${DB_DATABASE:-omsimsocial}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: omsimsocial-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+volumes:
+  postgres_data:
+  redis_data:
