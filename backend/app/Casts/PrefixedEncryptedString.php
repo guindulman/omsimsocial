@@ -16,6 +16,17 @@ class PrefixedEncryptedString implements CastsAttributes
 {
     public const PREFIX = 'enc:';
 
+    public static function isEncryptedValue(string $value): bool
+    {
+        if (! str_starts_with($value, self::PREFIX)) {
+            return false;
+        }
+
+        $payload = substr($value, strlen(self::PREFIX));
+
+        return self::looksLikeLaravelEncryptedPayload($payload);
+    }
+
     private static function looksLikeLaravelEncryptedPayload(string $payload): bool
     {
         $decoded = base64_decode($payload, true);
@@ -56,12 +67,12 @@ class PrefixedEncryptedString implements CastsAttributes
             return $value;
         }
 
-        $payload = substr($value, strlen(self::PREFIX));
-        if (! self::looksLikeLaravelEncryptedPayload($payload)) {
+        if (! self::isEncryptedValue($value)) {
             // Plaintext that happens to start with the prefix.
             return $value;
         }
 
+        $payload = substr($value, strlen(self::PREFIX));
         try {
             return Crypt::decryptString($payload);
         } catch (\Throwable $e) {
