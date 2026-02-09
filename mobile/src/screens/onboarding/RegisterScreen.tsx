@@ -182,20 +182,14 @@ export const RegisterScreen = () => {
           disabled={mutation.isPending || (turnstileRequired && !turnstileToken)}
         />
 
-        {SOCIAL_AUTH_ENABLED ? (
+        {SOCIAL_AUTH_ENABLED && googleLogin.configured ? (
           <View style={{ gap: 10 }}>
             <Button
               label="Continue with Google"
               variant="secondary"
               iconElement={<Feather name="chrome" size={18} color={theme.colors.textPrimary} />}
               onPress={googleLogin.signIn}
-              disabled={googleLogin.isPending || !googleLogin.configured}
-            />
-            <Button
-              label="Continue with Apple"
-              variant="secondary"
-              iconElement={<Feather name="aperture" size={18} color={theme.colors.textPrimary} />}
-              onPress={() => undefined}
+              disabled={googleLogin.isPending}
             />
           </View>
         ) : null}

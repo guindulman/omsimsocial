@@ -8,12 +8,37 @@
       "distribution": "internal"
     },
     "preview": {
-      "distribution": "internal"
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://omsimsocial.com/api/v1",
+        "EXPO_PUBLIC_REVERB_APP_KEY": "0780d71a31c3af8ba95476fc6c300dae",
+        "EXPO_PUBLIC_REVERB_HOST": "ws.omsimsocial.com",
+        "EXPO_PUBLIC_REVERB_PORT": "443",
+        "EXPO_PUBLIC_REVERB_TLS": "true",
+        "EXPO_PUBLIC_SOCIAL_AUTH_ENABLED": "true",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "389348068780-ms9oe4q30mlehoim1i2mfk6evt2mj35p.apps.googleusercontent.com"
+      }
     },
-    "production": {}
+    "production": {
+      "distribution": "store",
+      "android": {
+        "buildType": "app-bundle"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://omsimsocial.com/api/v1",
+        "EXPO_PUBLIC_REVERB_APP_KEY": "0780d71a31c3af8ba95476fc6c300dae",
+        "EXPO_PUBLIC_REVERB_HOST": "ws.omsimsocial.com",
+        "EXPO_PUBLIC_REVERB_PORT": "443",
+        "EXPO_PUBLIC_REVERB_TLS": "true",
+        "EXPO_PUBLIC_SOCIAL_AUTH_ENABLED": "true",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "389348068780-ms9oe4q30mlehoim1i2mfk6evt2mj35p.apps.googleusercontent.com"
+      }
+    }
   },
   "submit": {
     "production": {}
   }
 }
-
