@@ -125,4 +125,9 @@ class User extends Authenticatable
     {
         return $this->hasMany(UserModerationNote::class);
     }
+
+    public function oauthIdentities(): HasMany
+    {
+        return $this->hasMany(OAuthIdentity::class);
+    }
 }

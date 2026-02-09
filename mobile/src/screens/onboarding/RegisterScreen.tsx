@@ -9,6 +9,7 @@ import { useMutation } from '@tanstack/react-query';
 
 import { api } from '../../api';
 import { ApiError, apiFetch, API_URL } from '../../api/client';
+import { useGoogleLogin } from '../../auth/useGoogleLogin';
 import { AppText } from '../../components/AppText';
 import { Button } from '../../components/Button';
 import { IconMark } from '../../branding/IconMark';
@@ -39,6 +40,7 @@ export const RegisterScreen = () => {
   const navigation = useNavigation();
   const theme = useTheme();
   const setAuth = useAuthStore((state) => state.setAuth);
+  const googleLogin = useGoogleLogin();
   const [turnstileRequired, setTurnstileRequired] = React.useState(false);
   const [turnstilePath, setTurnstilePath] = React.useState('/auth/turnstile');
   const [turnstileToken, setTurnstileToken] = React.useState<string | null>(null);
@@ -186,7 +188,8 @@ export const RegisterScreen = () => {
               label="Continue with Google"
               variant="secondary"
               iconElement={<Feather name="chrome" size={18} color={theme.colors.textPrimary} />}
-              onPress={() => undefined}
+              onPress={googleLogin.signIn}
+              disabled={googleLogin.isPending || !googleLogin.configured}
             />
             <Button
               label="Continue with Apple"
@@ -202,6 +205,7 @@ export const RegisterScreen = () => {
           variant="ghost"
           onPress={() => navigation.navigate('Login' as never)}
         />
+        {googleLogin.errorMessage ? <AppText tone="urgent">{googleLogin.errorMessage}</AppText> : null}
         {mutation.isError ? <AppText tone="urgent">{errorMessage}</AppText> : null}
       </ScrollView>
     </KeyboardAvoidingView>

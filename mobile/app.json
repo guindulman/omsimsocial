@@ -2,6 +2,7 @@
   "expo": {
     "name": "Omsim Social",
     "slug": "omsim-social",
+    "scheme": "omsimsocial",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -37,7 +38,8 @@
     },
     "plugins": [
       "expo-secure-store",
-      "expo-font"
+      "expo-font",
+      "expo-web-browser"
     ]
   }
 }

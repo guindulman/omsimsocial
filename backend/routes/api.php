@@ -36,6 +36,7 @@ Route::prefix('v1')->group(function () {
         // Auth endpoints are prime targets for abuse; keep them rate-limited.
         Route::get('anti-bot', [AuthController::class, 'antiBot']);
         Route::get('turnstile', [AuthController::class, 'turnstile']);
+        Route::post('google', [AuthController::class, 'google'])->middleware('throttle:login');
         Route::post('register', [AuthController::class, 'register'])->middleware('throttle:register');
         Route::post('login', [AuthController::class, 'login'])->middleware('throttle:login');
     });

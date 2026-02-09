@@ -31,6 +31,11 @@ export const api = {
       method: 'POST',
       json: payload,
     }),
+  googleLogin: (payload: { id_token: string }) =>
+    apiFetch<{ user: User; token: string }>('/auth/google', {
+      method: 'POST',
+      json: payload,
+    }),
   login: (payload: { identifier: string; password: string }) =>
     apiFetch<{ user: User; token: string }>('/auth/login', {
       method: 'POST',
