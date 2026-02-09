@@ -25,6 +25,7 @@ export const api = {
     phone?: string;
     password: string;
     password_confirmation: string;
+    turnstile_token?: string;
   }) =>
     apiFetch<{ user: User; token: string }>('/auth/register', {
       method: 'POST',

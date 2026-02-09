@@ -8,10 +8,12 @@ import { Feather } from '@expo/vector-icons';
 import { useMutation } from '@tanstack/react-query';
 
 import { api } from '../../api';
+import { ApiError, apiFetch, API_URL } from '../../api/client';
 import { AppText } from '../../components/AppText';
 import { Button } from '../../components/Button';
 import { IconMark } from '../../branding/IconMark';
 import { Input } from '../../components/Input';
+import { TurnstileWidget } from '../../components/TurnstileWidget';
 import { useAuthStore } from '../../state/authStore';
 import { useTheme } from '../../theme/useTheme';
 
@@ -29,6 +31,7 @@ const schema = z
   });
 
 type FormValues = z.infer<typeof schema>;
+type RegisterPayload = FormValues & { turnstile_token?: string };
 
 const SOCIAL_AUTH_ENABLED = process.env.EXPO_PUBLIC_SOCIAL_AUTH_ENABLED === 'true';
 
@@ -36,6 +39,10 @@ export const RegisterScreen = () => {
   const navigation = useNavigation();
   const theme = useTheme();
   const setAuth = useAuthStore((state) => state.setAuth);
+  const [turnstileRequired, setTurnstileRequired] = React.useState(false);
+  const [turnstilePath, setTurnstilePath] = React.useState('/auth/turnstile');
+  const [turnstileToken, setTurnstileToken] = React.useState<string | null>(null);
+  const [turnstileError, setTurnstileError] = React.useState<string | null>(null);
   const {
     register,
     setValue,
@@ -60,14 +67,40 @@ export const RegisterScreen = () => {
     register('password_confirmation');
   }, [register]);
 
+  React.useEffect(() => {
+    let cancelled = false;
+    apiFetch<{ turnstile: { required: boolean; path: string } }>('/auth/anti-bot')
+      .then((data) => {
+        if (cancelled) {
+          return;
+        }
+        setTurnstileRequired(Boolean(data.turnstile?.required));
+        if (typeof data.turnstile?.path === 'string' && data.turnstile.path) {
+          setTurnstilePath(data.turnstile.path);
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const mutation = useMutation({
-    mutationFn: (payload: FormValues) =>
+    mutationFn: (payload: RegisterPayload) =>
       api.register({
         ...payload,
         email: payload.email || undefined,
       }),
     onSuccess: async (data) => {
       await setAuth(data.token, data.user);
+    },
+    onError: (error) => {
+      if (error instanceof ApiError) {
+        const payload = error.payload as { code?: string } | null;
+        if (payload?.code === 'captcha_required' || payload?.code === 'captcha_failed') {
+          setTurnstileRequired(true);
+        }
+      }
     },
   });
 
@@ -78,7 +111,7 @@ export const RegisterScreen = () => {
     : '';
 
   const onSubmit = handleSubmit((values) => {
-    mutation.mutate(values);
+    mutation.mutate({ ...values, turnstile_token: turnstileToken || undefined });
   });
 
   return (
@@ -115,12 +148,37 @@ export const RegisterScreen = () => {
             secureTextEntry
             onChangeText={(t) => setValue('password_confirmation', t)}
           />
-          {errors.password_confirmation ? (
-            <AppText tone="urgent">{errors.password_confirmation.message}</AppText>
-          ) : null}
-        </View>
+            {errors.password_confirmation ? (
+              <AppText tone="urgent">{errors.password_confirmation.message}</AppText>
+            ) : null}
+          </View>
 
-        <Button label={mutation.isPending ? 'Creating...' : 'Create account'} onPress={onSubmit} />
+        {turnstileRequired ? (
+          <View style={{ gap: 8 }}>
+            <AppText tone="secondary">Anti-bot check</AppText>
+            <TurnstileWidget
+              url={`${API_URL}${turnstilePath}`}
+              onToken={(token) => {
+                setTurnstileToken(token);
+                setTurnstileError(null);
+              }}
+              onExpired={() => setTurnstileToken(null)}
+              onError={() => setTurnstileError('Anti-bot check failed to load. Please try again.')}
+            />
+            {turnstileToken ? (
+              <AppText tone="secondary">Verified.</AppText>
+            ) : (
+              <AppText tone="secondary">Complete the check to continue.</AppText>
+            )}
+            {turnstileError ? <AppText tone="urgent">{turnstileError}</AppText> : null}
+          </View>
+        ) : null}
+
+        <Button
+          label={mutation.isPending ? 'Creating...' : 'Create account'}
+          onPress={onSubmit}
+          disabled={mutation.isPending || (turnstileRequired && !turnstileToken)}
+        />
 
         {SOCIAL_AUTH_ENABLED ? (
           <View style={{ gap: 10 }}>
