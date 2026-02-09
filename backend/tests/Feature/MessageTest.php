@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Friendship;
+use App\Models\Message;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
@@ -40,5 +41,14 @@ class MessageTest extends TestCase
         ]);
 
         $allowed->assertCreated();
+        $allowed->assertJsonPath('message.body', 'Hello again');
+
+        $messageId = (int) $allowed->json('message.id');
+        $message = Message::query()->findOrFail($messageId);
+        $rawBody = $message->getRawOriginal('body');
+
+        $this->assertIsString($rawBody);
+        $this->assertStringStartsWith('enc:', $rawBody);
+        $this->assertNotSame('Hello again', $rawBody);
     }
 }

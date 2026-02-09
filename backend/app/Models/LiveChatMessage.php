@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Casts\PrefixedEncryptedString;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -14,6 +15,10 @@ class LiveChatMessage extends Model
         'room_id',
         'user_id',
         'message',
+    ];
+
+    protected $casts = [
+        'message' => PrefixedEncryptedString::class,
     ];
 
     public function room(): BelongsTo
