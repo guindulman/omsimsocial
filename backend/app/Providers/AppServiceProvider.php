@@ -28,10 +28,54 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(120)->by($key);
         });
 
+        RateLimiter::for('register', function (Request $request) {
+            $ip = $request->ip() ?: 'unknown';
+            $email = strtolower(trim((string) $request->input('email', '')));
+            $emailKey = $email !== '' ? "email:{$email}" : 'email:missing';
+
+            // Register endpoints are frequent bot targets. Limit by both IP and identifier.
+            return [
+                Limit::perMinute(5)->by("ip:{$ip}"),
+                Limit::perMinute(3)->by($emailKey),
+                Limit::perHour(20)->by("ip:{$ip}"),
+            ];
+        });
+
+        RateLimiter::for('login', function (Request $request) {
+            $ip = $request->ip() ?: 'unknown';
+            $identifier = strtolower(trim((string) $request->input('identifier', '')));
+            $identifierKey = $identifier !== '' ? "identifier:{$identifier}" : 'identifier:missing';
+
+            return [
+                Limit::perMinute(10)->by("ip:{$ip}"),
+                Limit::perMinute(10)->by($identifierKey),
+                Limit::perHour(120)->by("ip:{$ip}"),
+            ];
+        });
+
         RateLimiter::for('invites', function (Request $request) {
             $key = $request->user()?->id ?: $request->ip();
 
             return Limit::perDay(10)->by($key);
+        });
+
+        RateLimiter::for('posts', function (Request $request) {
+            $key = $request->user()?->id ?: $request->ip();
+
+            // Prevent rapid-fire posting bursts from newly created or scripted accounts.
+            return [
+                Limit::perMinute(10)->by($key),
+                Limit::perHour(200)->by($key),
+            ];
+        });
+
+        RateLimiter::for('messages', function (Request $request) {
+            $key = $request->user()?->id ?: $request->ip();
+
+            return [
+                Limit::perMinute(20)->by($key),
+                Limit::perHour(500)->by($key),
+            ];
         });
 
         RateLimiter::for('reactions', function (Request $request) {

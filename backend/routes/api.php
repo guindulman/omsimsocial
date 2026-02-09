@@ -34,8 +34,8 @@ require base_path('routes/channels.php');
 Route::prefix('v1')->group(function () {
     Route::prefix('auth')->group(function () {
         // Auth endpoints are prime targets for abuse; keep them rate-limited.
-        Route::post('register', [AuthController::class, 'register'])->middleware('throttle:5,1');
-        Route::post('login', [AuthController::class, 'login'])->middleware('throttle:10,1');
+        Route::post('register', [AuthController::class, 'register'])->middleware('throttle:register');
+        Route::post('login', [AuthController::class, 'login'])->middleware('throttle:login');
     });
 
     Route::middleware('auth:sanctum')->group(function () {
@@ -116,7 +116,7 @@ Route::prefix('v1')->group(function () {
             });
 
             Route::prefix('memories')->group(function () {
-                Route::post('/', [MemoryController::class, 'store']);
+                Route::post('/', [MemoryController::class, 'store'])->middleware('throttle:posts');
                 Route::get('public', [MemoryController::class, 'publicFeed']);
                 Route::get('following', [MemoryController::class, 'followingFeed']);
                 Route::get('connections', [MemoryController::class, 'connectionsFeed']);
@@ -197,7 +197,7 @@ Route::prefix('v1')->group(function () {
                 Route::post('{call}/signal', [CallController::class, 'signal']);
             });
 
-            Route::post('messages', [MessageController::class, 'store']);
+            Route::post('messages', [MessageController::class, 'store'])->middleware('throttle:messages');
             Route::get('messages/unread-count', [MessageController::class, 'unreadCount']);
             Route::get('messages/unread-by-sender', [MessageController::class, 'unreadBySender']);
             Route::get('messages/thread/{user}', [MessageController::class, 'thread']);
