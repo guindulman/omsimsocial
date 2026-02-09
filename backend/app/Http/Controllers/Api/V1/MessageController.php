@@ -10,12 +10,13 @@ use App\Models\Message;
 use App\Models\User;
 use App\Services\ConnectionService;
 use App\Services\FriendshipService;
+use App\Services\Moderation\ImageModerationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
 class MessageController extends Controller
 {
-    public function store(CreateMessageRequest $request, FriendshipService $friendshipService, ConnectionService $connectionService)
+    public function store(CreateMessageRequest $request, FriendshipService $friendshipService, ConnectionService $connectionService, ImageModerationService $moderation)
     {
         $sender = $request->user();
         $recipientId = $request->integer('recipient_id');
@@ -40,6 +41,17 @@ class MessageController extends Controller
             $file = $request->file('file');
             $mimeType = $file->getMimeType() ?? '';
             $mediaType = str_starts_with($mimeType, 'video') ? 'video' : 'image';
+
+            if ($mediaType === 'image') {
+                $decision = $moderation->moderate($file);
+                if (! ($decision['allowed'] ?? false)) {
+                    return response()->json([
+                        'code' => $decision['code'] ?? 'explicit_content_blocked',
+                        'message' => $decision['message'] ?? 'Upload rejected.',
+                    ], 422);
+                }
+            }
+
             $path = $file->storePublicly('messages/'.$sender->id, [
                 'disk' => 'public',
             ]);
