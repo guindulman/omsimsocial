@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Services\ConnectionService;
 use App\Services\FriendshipService;
 use App\Services\Moderation\ImageModerationService;
+use App\Models\UserE2eeKey;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
@@ -20,6 +21,10 @@ class MessageController extends Controller
     {
         $sender = $request->user();
         $recipientId = $request->integer('recipient_id');
+        $e2eeEnabled = (bool) config('e2ee.enabled');
+        $e2eeRequired = (bool) config('e2ee.required');
+        $e2ee = $request->input('e2ee');
+        $isE2eeMessage = $e2eeEnabled && is_array($e2ee);
 
         if (! $friendshipService->exists($sender->id, $recipientId)) {
             return response()->json([
@@ -33,6 +38,28 @@ class MessageController extends Controller
                 'code' => 'messaging_blocked',
                 'message' => 'Messaging blocked.',
             ], 403);
+        }
+
+        $senderKey = null;
+        $recipientKey = null;
+        if ($e2eeEnabled && ($e2eeRequired || $isE2eeMessage)) {
+            $senderKey = UserE2eeKey::query()->where('user_id', $sender->id)->first();
+            $recipientKey = UserE2eeKey::query()->where('user_id', $recipientId)->first();
+
+            if (! $senderKey || ! $recipientKey) {
+                return response()->json([
+                    'code' => 'e2ee_not_configured',
+                    'message' => 'End-to-end encryption is enabled but one or both users do not have keys configured.',
+                ], 409);
+            }
+
+            // For privacy, do not accept plaintext DM bodies when E2EE is required.
+            if ($e2eeRequired && is_string($request->input('body'))) {
+                return response()->json([
+                    'code' => 'e2ee_required',
+                    'message' => 'End-to-end encryption is required for direct message text.',
+                ], 422);
+            }
         }
 
         $mediaUrl = null;
@@ -58,12 +85,35 @@ class MessageController extends Controller
             $mediaUrl = Storage::disk('public')->url($path);
         }
 
+        $body = $request->input('body') ?? '';
+        $e2eeFields = [];
+        if ($isE2eeMessage) {
+            $senderPublicKey = $e2ee['sender_public_key'] ?? null;
+            if (! is_string($senderPublicKey) || ! $senderKey || $senderPublicKey !== $senderKey->public_key) {
+                return response()->json([
+                    'code' => 'e2ee_sender_key_mismatch',
+                    'message' => 'Invalid end-to-end encryption sender key.',
+                ], 422);
+            }
+
+            $body = '';
+            $e2eeFields = [
+                'body_e2ee_version' => (int) ($e2ee['v'] ?? 1),
+                'body_e2ee_sender_public_key' => $senderPublicKey,
+                'body_ciphertext_sender' => (string) ($e2ee['ciphertext_sender'] ?? ''),
+                'body_nonce_sender' => (string) ($e2ee['nonce_sender'] ?? ''),
+                'body_ciphertext_recipient' => (string) ($e2ee['ciphertext_recipient'] ?? ''),
+                'body_nonce_recipient' => (string) ($e2ee['nonce_recipient'] ?? ''),
+            ];
+        }
+
         $message = Message::query()->create([
             'sender_id' => $sender->id,
             'recipient_id' => $recipientId,
-            'body' => $request->input('body') ?? '',
+            'body' => $body,
             'media_url' => $mediaUrl,
             'media_type' => $mediaType,
+            ...$e2eeFields,
         ]);
 
         $message->load(['sender.profile', 'recipient.profile']);

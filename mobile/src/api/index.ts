@@ -4,6 +4,7 @@ import {
   CallSession,
   Circle,
   Connection,
+  E2eeKey,
   InboxEvent,
   Message,
   MemoryComment,
@@ -390,12 +391,27 @@ export const api = {
   sendMessage: (payload: {
     recipient_id: number;
     body?: string;
+    e2ee?: {
+      v: number;
+      sender_public_key: string;
+      ciphertext_sender: string;
+      nonce_sender: string;
+      ciphertext_recipient: string;
+      nonce_recipient: string;
+    };
     media?: { uri: string; type: 'image' | 'video' };
   }) => {
     if (payload.media) {
       const formData = new FormData();
       formData.append('recipient_id', String(payload.recipient_id));
-      if (payload.body) {
+      if (payload.e2ee) {
+        formData.append('e2ee[v]', String(payload.e2ee.v));
+        formData.append('e2ee[sender_public_key]', payload.e2ee.sender_public_key);
+        formData.append('e2ee[ciphertext_sender]', payload.e2ee.ciphertext_sender);
+        formData.append('e2ee[nonce_sender]', payload.e2ee.nonce_sender);
+        formData.append('e2ee[ciphertext_recipient]', payload.e2ee.ciphertext_recipient);
+        formData.append('e2ee[nonce_recipient]', payload.e2ee.nonce_recipient);
+      } else if (payload.body) {
         formData.append('body', payload.body);
       }
       formData.append('file', {
@@ -405,9 +421,15 @@ export const api = {
       } as unknown as Blob);
       return apiUpload<{ message: Message }>('/messages', formData);
     }
+    const json: Record<string, unknown> = { recipient_id: payload.recipient_id };
+    if (payload.e2ee) {
+      json.e2ee = payload.e2ee;
+    } else {
+      json.body = payload.body ?? '';
+    }
     return apiFetch<{ message: Message }>('/messages', {
       method: 'POST',
-      json: { recipient_id: payload.recipient_id, body: payload.body ?? '' },
+      json,
     });
   },
   requestCall: (recipientId: number, type: 'voice' | 'video' = 'video') =>
@@ -434,4 +456,10 @@ export const api = {
   messageUnreadCount: () => apiFetch<{ total: number }>('/messages/unread-count'),
   messageUnreadBySender: () =>
     apiFetch<{ data: { sender_id: number; unread_count: number }[] }>('/messages/unread-by-sender'),
+
+  e2eeKeyMe: () =>
+    apiFetch<{ enabled: boolean; required: boolean; key: E2eeKey | null }>('/e2ee/key/me'),
+  e2eeRegisterKey: (publicKey: string, algorithm: string = 'nacl_box_v1') =>
+    apiFetch<{ key: E2eeKey }>('/e2ee/key', { method: 'POST', json: { public_key: publicKey, algorithm } }),
+  e2eeKey: (userId: number) => apiFetch<E2eeKey>(`/e2ee/key/${userId}`),
 };

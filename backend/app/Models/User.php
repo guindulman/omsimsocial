@@ -71,6 +71,11 @@ class User extends Authenticatable
         return $this->hasOne(Profile::class);
     }
 
+    public function e2eeKey(): HasOne
+    {
+        return $this->hasOne(UserE2eeKey::class);
+    }
+
     public function connectionsRequested(): HasMany
     {
         return $this->hasMany(Connection::class, 'requester_id');

@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\V1\FriendRequestController;
 use App\Http\Controllers\Api\V1\FriendshipController;
 use App\Http\Controllers\Api\V1\HomeFeedController;
 use App\Http\Controllers\Api\V1\InboxController;
+use App\Http\Controllers\Api\V1\E2eeKeyController;
 use App\Http\Controllers\Api\V1\MessageController;
 use App\Http\Controllers\Api\V1\MemoryCommentController;
 use App\Http\Controllers\Api\V1\MemoryController;
@@ -198,6 +199,12 @@ Route::prefix('v1')->group(function () {
                 Route::post('{call}/decline', [CallController::class, 'decline']);
                 Route::post('{call}/end', [CallController::class, 'end']);
                 Route::post('{call}/signal', [CallController::class, 'signal']);
+            });
+
+            Route::prefix('e2ee')->group(function () {
+                Route::get('key/me', [E2eeKeyController::class, 'me']);
+                Route::post('key', [E2eeKeyController::class, 'store']);
+                Route::get('key/{user}', [E2eeKeyController::class, 'show']);
             });
 
             Route::post('messages', [MessageController::class, 'store'])->middleware('throttle:messages');
