@@ -14,7 +14,31 @@ use Illuminate\Support\Facades\Log;
  */
 class PrefixedEncryptedString implements CastsAttributes
 {
-    private const PREFIX = 'enc:';
+    public const PREFIX = 'enc:';
+
+    private static function looksLikeLaravelEncryptedPayload(string $payload): bool
+    {
+        $decoded = base64_decode($payload, true);
+        if ($decoded === false) {
+            return false;
+        }
+
+        $json = json_decode($decoded, true);
+        if (! is_array($json)) {
+            return false;
+        }
+
+        // Laravel's encrypted payload is base64(JSON) with at least these keys.
+        if (! isset($json['iv'], $json['value'])) {
+            return false;
+        }
+
+        if (! is_string($json['iv']) || ! is_string($json['value'])) {
+            return false;
+        }
+
+        return true;
+    }
 
     public function get($model, string $key, $value, array $attributes): ?string
     {
@@ -33,6 +57,11 @@ class PrefixedEncryptedString implements CastsAttributes
         }
 
         $payload = substr($value, strlen(self::PREFIX));
+        if (! self::looksLikeLaravelEncryptedPayload($payload)) {
+            // Plaintext that happens to start with the prefix.
+            return $value;
+        }
+
         try {
             return Crypt::decryptString($payload);
         } catch (\Throwable $e) {
@@ -61,4 +90,3 @@ class PrefixedEncryptedString implements CastsAttributes
         return self::PREFIX.Crypt::encryptString($value);
     }
 }
-
