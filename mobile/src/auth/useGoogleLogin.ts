@@ -43,6 +43,12 @@ export const useGoogleLogin = () => {
       return undefined;
     }
     // Use the Expo AuthSession proxy on Expo Go (matches https://auth.expo.io/@owner/slug).
+    // Prefer a stable value derived from app config over @anonymous.
+    const owner = Constants.expoConfig?.owner;
+    const slug = Constants.expoConfig?.slug;
+    if (owner && slug) {
+      return `https://auth.expo.io/@${owner}/${slug}`;
+    }
     return AuthSession.getRedirectUrl();
   }, [isExpoGo]);
 
