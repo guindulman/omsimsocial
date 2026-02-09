@@ -33,7 +33,6 @@
         "CAMERA",
         "RECORD_AUDIO"
       ],
-      "usesCleartextTraffic": true,
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false
     },
