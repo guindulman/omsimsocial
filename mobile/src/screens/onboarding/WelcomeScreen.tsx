@@ -30,7 +30,7 @@ export const WelcomeScreen = () => {
 
       <View style={styles.content}>
         <AppText variant="title">Stay close without the noise.</AppText>
-        <AppText tone="secondary">Join your real-life circles and keep the conversation going.</AppText>
+        <AppText tone="secondary">Real people. Real friends.</AppText>
         <View style={styles.actions}>
           <Button label="Create account" onPress={() => navigation.navigate('Register' as never)} />
           <Button
