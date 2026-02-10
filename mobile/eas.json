@@ -1,6 +1,7 @@
 {
   "cli": {
-    "version": ">= 16.0.0"
+    "version": ">= 16.0.0",
+    "appVersionSource": "remote"
   },
   "build": {
     "development": {
@@ -10,7 +11,8 @@
     "preview": {
       "distribution": "internal",
       "android": {
-        "buildType": "apk"
+        "buildType": "apk",
+        "credentialsSource": "local"
       },
       "env": {
         "EXPO_PUBLIC_API_URL": "https://omsimsocial.com/api/v1",
@@ -25,8 +27,10 @@
     "production": {
       "distribution": "store",
       "android": {
-        "buildType": "app-bundle"
+        "buildType": "app-bundle",
+        "credentialsSource": "local"
       },
+      "autoIncrement": true,
       "env": {
         "EXPO_PUBLIC_API_URL": "https://omsimsocial.com/api/v1",
         "EXPO_PUBLIC_REVERB_APP_KEY": "0780d71a31c3af8ba95476fc6c300dae",
