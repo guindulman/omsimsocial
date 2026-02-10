@@ -92,7 +92,8 @@
             <li>The right to request deletion or blocking where applicable.</li>
         </ul>
         <p>
-            To exercise these rights, contact us using the email below.
+            To exercise these rights, contact us using our
+            <a href="{{ route('contact.show') }}" class="font-semibold text-[#1E40FF] hover:underline">contact form</a>.
         </p>
     </div>
 
@@ -123,8 +124,8 @@
     <div class="space-y-2">
         <h2 class="text-base font-semibold text-zinc-950 dark:text-white">Contact</h2>
         <p>
-            Questions about privacy? Email
-            <a href="mailto:hello@omsimsocial.com" class="font-semibold text-[#1E40FF] hover:underline">hello@omsimsocial.com</a>.
+            Questions about privacy? Reach us via our
+            <a href="{{ route('contact.show') }}" class="font-semibold text-[#1E40FF] hover:underline">contact form</a>.
         </p>
     </div>
 </div>

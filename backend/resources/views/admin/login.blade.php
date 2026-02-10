@@ -61,7 +61,7 @@
             <input
               type="email"
               name="email"
-              value="{{ old('email', $adminEmail ?? '') }}"
+              value="{{ old('email', '') }}"
               required
               style="width:100%; margin-top:6px; padding:12px 14px; border-radius:12px; border:1px solid var(--border); background:var(--surface-alt); color:var(--text);"
             >

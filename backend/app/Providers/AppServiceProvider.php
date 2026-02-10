@@ -53,6 +53,30 @@ class AppServiceProvider extends ServiceProvider
             ];
         });
 
+        RateLimiter::for('admin-login', function (Request $request) {
+            $ip = $request->ip() ?: 'unknown';
+            $email = strtolower(trim((string) $request->input('email', '')));
+            $emailKey = $email !== '' ? "email:{$email}" : 'email:missing';
+
+            return [
+                Limit::perMinute(5)->by("ip:{$ip}"),
+                Limit::perMinute(5)->by($emailKey),
+                Limit::perHour(30)->by("ip:{$ip}"),
+            ];
+        });
+
+        RateLimiter::for('contact', function (Request $request) {
+            $ip = $request->ip() ?: 'unknown';
+            $email = strtolower(trim((string) $request->input('email', '')));
+            $emailKey = $email !== '' ? "email:{$email}" : 'email:missing';
+
+            return [
+                Limit::perMinute(5)->by("ip:{$ip}"),
+                Limit::perMinute(3)->by($emailKey),
+                Limit::perHour(50)->by("ip:{$ip}"),
+            ];
+        });
+
         RateLimiter::for('invites', function (Request $request) {
             $key = $request->user()?->id ?: $request->ip();
 

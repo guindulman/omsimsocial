@@ -101,8 +101,8 @@
     <div class="space-y-2">
         <h2 class="text-base font-semibold text-zinc-950 dark:text-white">Contact</h2>
         <p>
-            Questions about these Terms? Email
-            <a href="mailto:hello@omsimsocial.com" class="font-semibold text-[#1E40FF] hover:underline">hello@omsimsocial.com</a>.
+            Questions about these Terms? Reach us via our
+            <a href="{{ route('contact.show') }}" class="font-semibold text-[#1E40FF] hover:underline">contact form</a>.
         </p>
     </div>
 </div>

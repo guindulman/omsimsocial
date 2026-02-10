@@ -16,8 +16,6 @@ class AuthController extends Controller
         }
 
         return view('admin.login', [
-            'adminName' => config('admin.name'),
-            'adminEmail' => config('admin.email'),
             'isConfigured' => (string) config('admin.password') !== '',
         ]);
     }

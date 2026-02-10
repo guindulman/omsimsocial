@@ -13,12 +13,14 @@ Route::view('/privacy', 'legal.privacy')->name('privacy');
 
 Route::get('/contact', [ContactController::class, 'show'])->name('contact.show');
 Route::post('/contact', [ContactController::class, 'store'])
-    ->middleware('throttle:10,1')
+    ->middleware('throttle:contact')
     ->name('contact.submit');
 
-Route::prefix('admin')->group(function () {
+    Route::prefix('admin')->group(function () {
     Route::get('login', [AuthController::class, 'show'])->name('admin.login');
-    Route::post('login', [AuthController::class, 'login'])->name('admin.login.submit');
+    Route::post('login', [AuthController::class, 'login'])
+        ->middleware('throttle:admin-login')
+        ->name('admin.login.submit');
     Route::post('logout', [AuthController::class, 'logout'])->name('admin.logout');
 
     Route::middleware('admin')->group(function () {

@@ -3,6 +3,17 @@
 @section('title', 'Contact - Omsim')
 @section('meta_description', 'Contact Omsim.')
 
+@php
+    $turnstileSiteKey = trim((string) config('turnstile.site'));
+    $turnstileRequired = (bool) config('turnstile.required');
+@endphp
+
+@push('head')
+    @if ($turnstileRequired && $turnstileSiteKey !== '')
+        <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+    @endif
+@endpush
+
 @section('content')
     <div class="relative">
         <div aria-hidden="true" class="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
@@ -61,12 +72,9 @@
                             </p>
 
                             <div class="mt-8 rounded-3xl border border-zinc-200/70 bg-white/70 p-6 shadow-sm backdrop-blur dark:border-white/10 dark:bg-white/5">
-                                <div class="text-sm font-semibold text-zinc-950 dark:text-white">Email</div>
+                                <div class="text-sm font-semibold text-zinc-950 dark:text-white">Support</div>
                                 <p class="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
-                                    Prefer email? Write us at
-                                    <a class="font-semibold text-[#1E40FF] hover:underline" href="mailto:hello@omsimsocial.com">
-                                        hello@omsimsocial.com
-                                    </a>.
+                                    For security, we do not publish a support email address. Use the form and we will reply.
                                 </p>
                             </div>
                         </div>
@@ -85,6 +93,13 @@
 
                             <form action="{{ route('contact.submit') }}" method="POST" class="grid gap-4">
                                 @csrf
+
+                                <div style="position:absolute; left:-10000px; top:auto; width:1px; height:1px; overflow:hidden;" aria-hidden="true">
+                                    <label>
+                                        Company
+                                        <input type="text" name="company" tabindex="-1" autocomplete="off" value="" />
+                                    </label>
+                                </div>
 
                                 <div>
                                     <label for="name" class="text-sm font-semibold text-zinc-900 dark:text-white">
@@ -143,6 +158,15 @@
                                         <p class="mt-2 text-sm font-medium text-rose-600 dark:text-rose-300">{{ $message }}</p>
                                     @enderror
                                 </div>
+
+                                @if ($turnstileRequired && $turnstileSiteKey !== '')
+                                    <div>
+                                        <div class="cf-turnstile" data-sitekey="{{ $turnstileSiteKey }}"></div>
+                                        @error('turnstile')
+                                            <p class="mt-2 text-sm font-medium text-rose-600 dark:text-rose-300">{{ $message }}</p>
+                                        @enderror
+                                    </div>
+                                @endif
 
                                 <button
                                     type="submit"
