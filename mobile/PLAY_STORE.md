@@ -5,7 +5,7 @@ This project is configured to build Android **App Bundles (`.aab`)** with EAS fo
 ## 1) One-Time IDs (Do Not Change After Publish)
 
 - Android package: `com.guindulman.omsimsocial` (set in `mobile/app.json`)
-- Expo owner/slug: `@guindulman/omsim-social` (used for Expo Go OAuth redirect)
+- Expo owner/slug: `@guindulman/omsimsocial` (used for Expo Go OAuth redirect)
 
 ## 2) Prereqs
 
@@ -37,7 +37,11 @@ Important:
 - These usually have **different SHA-1 fingerprints**, so you may need **two** Android OAuth clients (one per SHA-1).
 
 Where to get SHA-1 fingerprints:
-- Upload key: `eas credentials -p android`
+- Upload key: from your keystore (this repo uses local creds via `mobile/credentials.json`):
+
+```bash
+keytool -list -v -keystore mobile/credentials/omsimsocial-upload.jks -alias omsimsocial
+```
 - Play signing key: Play Console -> App integrity -> App signing key certificate
 
 Recommended setup:
@@ -66,5 +70,5 @@ Otherwise, upload the `.aab` manually in Play Console.
 
 ## 7) Versioning For Updates
 
-Every Play Store update must increment `android.versionCode` in `mobile/app.json`.
+This repo is configured to use **remote** app versioning via EAS (`cli.appVersionSource: remote`) and `autoIncrement: true` for the `production` profile, so `android.versionCode` in `mobile/app.json` is ignored for store builds.
 
