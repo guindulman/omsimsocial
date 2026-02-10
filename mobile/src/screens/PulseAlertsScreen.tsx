@@ -100,7 +100,7 @@ export const PulseAlertsScreen = () => {
                       <View style={{ marginLeft: theme.spacing.sm }}>
                         <AppText variant="subtitle">{user?.name ?? 'Omsim Member'}</AppText>
                         <AppText variant="caption" tone="secondary">
-                          Connected on Omsim Social
+                          Connected on Omsim
                         </AppText>
                       </View>
                     </View>

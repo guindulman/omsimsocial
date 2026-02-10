@@ -105,7 +105,7 @@ const Tabs = () => {
             headerTitle: () => (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm }}>
                 <IconMark size={28} />
-                <AppText variant="subtitle">Omsim Social</AppText>
+                <AppText variant="subtitle">Omsim</AppText>
               </View>
             ),
           }}
