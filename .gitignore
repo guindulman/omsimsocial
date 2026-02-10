@@ -55,6 +55,7 @@ mobile/node_modules/
 mobile/.expo/
 mobile/dist/
 mobile/web-build/
+mobile/build-artifacts/
 
 # Root scaffold (project uses mobile/ instead)
 /App.tsx
