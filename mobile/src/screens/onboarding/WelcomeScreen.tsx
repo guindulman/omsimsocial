@@ -24,7 +24,7 @@ export const WelcomeScreen = () => {
           Omsim
         </AppText>
         <AppText tone="secondary" style={styles.heroBody}>
-          A social media with a clean feeds, vibrant moments, and pleople you actually know
+          A social app with a clean feed, vibrant moments, and people you actually know.
         </AppText>
       </LinearGradient>
 

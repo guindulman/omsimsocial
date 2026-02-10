@@ -18,8 +18,8 @@
       "supportsTablet": true,
       "buildNumber": "1",
       "infoPlist": {
-        "NSCameraUsageDescription": "Allow Omsim Social to access your camera for video calls.",
-        "NSMicrophoneUsageDescription": "Allow Omsim Social to access your microphone for calls."
+        "NSCameraUsageDescription": "Allow Omsim to access your camera for video calls.",
+        "NSMicrophoneUsageDescription": "Allow Omsim to access your microphone for calls."
       }
     },
     "android": {
