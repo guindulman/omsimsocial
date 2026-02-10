@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Casts\PrefixedEncryptedString;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -14,6 +15,12 @@ class Message extends Model
         'sender_id',
         'recipient_id',
         'body',
+        'body_e2ee_version',
+        'body_e2ee_sender_public_key',
+        'body_ciphertext_sender',
+        'body_nonce_sender',
+        'body_ciphertext_recipient',
+        'body_nonce_recipient',
         'media_url',
         'media_type',
         'read_at',
@@ -22,6 +29,7 @@ class Message extends Model
     ];
 
     protected $casts = [
+        'body' => PrefixedEncryptedString::class,
         'read_at' => 'datetime',
         'deleted_for_sender_at' => 'datetime',
         'deleted_for_recipient_at' => 'datetime',

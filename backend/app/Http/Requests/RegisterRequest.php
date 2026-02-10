@@ -24,6 +24,8 @@ class RegisterRequest extends FormRequest
             'email' => ['nullable', 'email', 'max:255', 'unique:users,email'],
             'phone' => ['nullable', 'string', 'max:32', 'unique:users,phone'],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
+            // Captcha token (verified in controller when enabled).
+            'turnstile_token' => ['sometimes', 'string'],
         ];
     }
 

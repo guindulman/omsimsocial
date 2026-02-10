@@ -156,12 +156,28 @@ export type Adoption = {
 export type Message = {
   id: number;
   body?: string | null;
+  e2ee?: {
+    v: number;
+    sender_public_key: string;
+    ciphertext_sender: string;
+    nonce_sender: string;
+    ciphertext_recipient: string;
+    nonce_recipient: string;
+  } | null;
   media_url?: string | null;
   media_type?: 'image' | 'video' | null;
   read_at?: string | null;
   sender?: User | null;
   recipient?: User | null;
   created_at: string;
+};
+
+export type E2eeKey = {
+  user_id: number;
+  public_key: string;
+  algorithm: string;
+  created_at?: string;
+  updated_at?: string;
 };
 
 export type CallSession = {

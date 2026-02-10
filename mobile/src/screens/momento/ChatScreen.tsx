@@ -29,6 +29,8 @@ import { useAuthStore } from '../../state/authStore';
 import { getEcho } from '../../realtime/echo';
 import { normalizeMediaUrl } from '../../utils/momentoAdapter';
 import { hasNativeWebRTC } from '../../utils/webrtc';
+import { decryptDmBody, encryptDmBodyV1 } from '../../e2ee/dm';
+import { useDmE2eeKeyPair } from '../../e2ee/useDmE2eeKeyPair';
 
 type ChatRouteParams = {
   conversationId: string;
@@ -62,6 +64,8 @@ export const ChatScreen = () => {
   const route = useRoute();
   const { conversationId, user: routeUser, userId } = route.params as ChatRouteParams;
   const currentUserId = useAuthStore((state) => state.user?.id);
+  const dmE2ee = useDmE2eeKeyPair();
+  const myKeyPair = dmE2ee.status === 'ready' ? dmE2ee.keyPair : null;
   const queryClient = useQueryClient();
   const listRef = useRef<FlatList<MomentoMessage>>(null);
   const inputRef = useRef<TextInput>(null);
@@ -111,16 +115,18 @@ export const ChatScreen = () => {
   const threadQuery = useQuery({
     queryKey: ['messages', recipientId],
     queryFn: () => api.messageThread(recipientId ?? 0),
-    enabled: Boolean(recipientId),
+    enabled: Boolean(recipientId) && dmE2ee.status === 'ready',
   });
 
   const toUiMessage = (item: ApiMessage): MomentoMessage => {
     const senderId = item.sender?.id;
     const from = senderId && senderId === currentUserId ? 'me' : item.sender?.id ?? 'me';
+    const decryptedText =
+      myKeyPair && currentUserId ? decryptDmBody(item, currentUserId, myKeyPair) : item.body ?? '';
     return {
       id: String(item.id),
       from: String(from),
-      text: item.body ?? '',
+      text: decryptedText,
       time: new Date(item.created_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }),
       mediaUrl: normalizeMediaUrl(item.media_url ?? null),
       mediaType: item.media_type ?? null,
@@ -162,12 +168,30 @@ export const ChatScreen = () => {
   };
 
   const sendMutation = useMutation({
-    mutationFn: (payload: { body?: string; media?: { uri: string; type: 'image' } }) =>
-      api.sendMessage({
-        recipient_id: recipientId ?? 0,
+    mutationFn: async (payload: { body?: string; media?: { uri: string; type: 'image' } }) => {
+      if (!recipientId) {
+        throw new Error('Recipient is required.');
+      }
+
+      if (payload.body) {
+        if (!myKeyPair || !currentUserId) {
+          throw new Error(dmE2ee.status === 'error' ? dmE2ee.error : 'Encrypted messaging not ready.');
+        }
+        const recipientKey = await api.e2eeKey(recipientId);
+        const e2eePayload = await encryptDmBodyV1(payload.body, myKeyPair, recipientKey.public_key);
+        return api.sendMessage({
+          recipient_id: recipientId,
+          e2ee: e2eePayload,
+          media: payload.media,
+        });
+      }
+
+      return api.sendMessage({
+        recipient_id: recipientId,
         body: payload.body,
         media: payload.media,
-      }),
+      });
+    },
     onSuccess: (response) => {
       const incoming = response.message;
       if (!incoming) return;
@@ -509,6 +533,16 @@ export const ChatScreen = () => {
             <Feather name="video" size={18} color={theme.colors.textPrimary} />
           </Pressable>
         </View>
+        {dmE2ee.status === 'error' ? (
+          <View style={{ paddingHorizontal: theme.spacing.lg, paddingTop: theme.spacing.sm }}>
+            <AppText tone="urgent">{dmE2ee.error}</AppText>
+          </View>
+        ) : null}
+        {dmE2ee.status === 'loading' ? (
+          <View style={{ paddingHorizontal: theme.spacing.lg, paddingTop: theme.spacing.sm }}>
+            <AppText tone="secondary">Setting up encrypted messaging…</AppText>
+          </View>
+        ) : null}
         {threadQuery.isError ? (
           <View style={{ paddingHorizontal: theme.spacing.lg, paddingTop: theme.spacing.sm }}>
             <AppText tone="urgent">

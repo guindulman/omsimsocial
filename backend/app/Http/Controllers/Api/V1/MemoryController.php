@@ -25,6 +25,7 @@ use App\Models\MemoryTag;
 use App\Models\MutedUser;
 use App\Models\Reaction;
 use App\Models\StoryView;
+use App\Services\Moderation\ImageModerationService;
 use App\Models\VaultItem;
 use App\Services\FriendshipService;
 use Illuminate\Http\Request;
@@ -450,7 +451,7 @@ class MemoryController extends Controller
         return response()->json(['message' => 'Memory deleted.']);
     }
 
-    public function addMedia(UploadMemoryMediaRequest $request, Memory $memory)
+    public function addMedia(UploadMemoryMediaRequest $request, Memory $memory, ImageModerationService $moderation)
     {
         if ($memory->author_id !== $request->user()->id) {
             return response()->json([
@@ -460,6 +461,18 @@ class MemoryController extends Controller
         }
 
         $file = $request->file('file');
+        $type = (string) $request->input('type');
+
+        if ($type === 'image') {
+            $decision = $moderation->moderate($file);
+            if (! ($decision['allowed'] ?? false)) {
+                return response()->json([
+                    'code' => $decision['code'] ?? 'explicit_content_blocked',
+                    'message' => $decision['message'] ?? 'Upload rejected.',
+                ], 422);
+            }
+        }
+
         $disk = 'public';
         $path = $file->storePublicly('memories/'.$memory->id, [
             'disk' => $disk,
@@ -467,7 +480,7 @@ class MemoryController extends Controller
 
         $media = MemoryMedia::query()->create([
             'memory_id' => $memory->id,
-            'type' => $request->input('type'),
+            'type' => $type,
             'url' => Storage::disk($disk)->url($path),
             'metadata' => $request->input('metadata'),
         ]);

@@ -19,6 +19,7 @@ import { AppStateProvider, useAppState } from './src/state/AppState';
 import { ThemeProvider } from './src/theme/ThemeProvider';
 import { useTheme } from './src/theme/useTheme';
 import { useSettingsStore } from './src/store/settingsStore';
+import { useDmE2eeKeyPair } from './src/e2ee/useDmE2eeKeyPair';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -62,6 +63,12 @@ const SettingsThemeSync = () => {
   return null;
 };
 
+const DmE2eeBootstrap = () => {
+  // Initializes local E2EE keys and registers the public key with the backend (idempotent).
+  useDmE2eeKeyPair();
+  return null;
+};
+
 const NavigationShell = () => {
   const theme = useTheme();
   const navTheme = {
@@ -84,6 +91,7 @@ const NavigationShell = () => {
         <QueryClientProvider client={queryClient}>
           <Bootstrap />
           <SettingsBootstrap />
+          <DmE2eeBootstrap />
           <NavigationContainer theme={navTheme}>
             <StatusBar style={theme.isDark ? 'light' : 'dark'} />
             <RootNavigator />

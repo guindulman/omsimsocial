@@ -1,17 +1,14 @@
 import React, { useState } from 'react';
-import { FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useRoute } from '@react-navigation/native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { api } from '../../api';
 import { EmptyState } from '../../components/EmptyState';
 import { useAuthStore } from '../../state/authStore';
-
-type Message = {
-  id: number;
-  body: string;
-  sender?: { id: number; name?: string };
-};
+import { decryptDmBody, encryptDmBodyV1 } from '../../e2ee/dm';
+import { useDmE2eeKeyPair } from '../../e2ee/useDmE2eeKeyPair';
+import { Message as ApiMessage } from '../../api/types';
 
 export const MessageThreadScreen = () => {
   const route = useRoute();
@@ -19,21 +16,36 @@ export const MessageThreadScreen = () => {
   const [text, setText] = useState('');
   const queryClient = useQueryClient();
   const currentUser = useAuthStore((state) => state.user);
+  const dmE2ee = useDmE2eeKeyPair();
+  const myKeyPair = dmE2ee.status === 'ready' ? dmE2ee.keyPair : null;
 
   const { data } = useQuery({
     queryKey: ['messages', userId],
     queryFn: () => api.messageThread(userId),
+    enabled: dmE2ee.status === 'ready',
   });
 
   const sendMutation = useMutation({
-    mutationFn: (body: string) => api.sendMessage({ recipient_id: userId, body }),
+    mutationFn: async (body: string) => {
+      if (!myKeyPair || !currentUser?.id) {
+        throw new Error(dmE2ee.status === 'error' ? dmE2ee.error : 'Encrypted messaging not ready.');
+      }
+      const recipientKey = await api.e2eeKey(userId);
+      const e2eePayload = await encryptDmBodyV1(body, myKeyPair, recipientKey.public_key);
+      return api.sendMessage({ recipient_id: userId, e2ee: e2eePayload });
+    },
     onSuccess: () => {
       setText('');
       queryClient.invalidateQueries({ queryKey: ['messages', userId] });
     },
+    onError: (error) => {
+      const messageText =
+        error instanceof Error ? error.message : 'Unable to send your message.';
+      Alert.alert('Message failed', messageText);
+    },
   });
 
-  const messages = (data?.data ?? []) as Message[];
+  const messages = (data?.data ?? []) as ApiMessage[];
 
   return (
     <View style={styles.container}>
@@ -53,7 +65,7 @@ export const MessageThreadScreen = () => {
                 item.sender?.id === currentUser?.id ? styles.bubbleTextMe : styles.bubbleTextThem,
               ]}
             >
-              {item.body}
+              {myKeyPair && currentUser?.id ? decryptDmBody(item, currentUser.id, myKeyPair) : item.body}
             </Text>
           </View>
         )}

@@ -71,6 +71,11 @@ class User extends Authenticatable
         return $this->hasOne(Profile::class);
     }
 
+    public function e2eeKey(): HasOne
+    {
+        return $this->hasOne(UserE2eeKey::class);
+    }
+
     public function connectionsRequested(): HasMany
     {
         return $this->hasMany(Connection::class, 'requester_id');
@@ -124,5 +129,10 @@ class User extends Authenticatable
     public function moderationNotes(): HasMany
     {
         return $this->hasMany(UserModerationNote::class);
+    }
+
+    public function oauthIdentities(): HasMany
+    {
+        return $this->hasMany(OAuthIdentity::class);
     }
 }

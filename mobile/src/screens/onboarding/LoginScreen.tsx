@@ -8,6 +8,7 @@ import { Feather } from '@expo/vector-icons';
 import { useMutation } from '@tanstack/react-query';
 
 import { api } from '../../api';
+import { useGoogleLogin } from '../../auth/useGoogleLogin';
 import { AppText } from '../../components/AppText';
 import { Button } from '../../components/Button';
 import { IconMark } from '../../branding/IconMark';
@@ -28,6 +29,7 @@ export const LoginScreen = () => {
   const navigation = useNavigation();
   const theme = useTheme();
   const setAuth = useAuthStore((state) => state.setAuth);
+  const googleLogin = useGoogleLogin();
   const {
     register,
     setValue,
@@ -91,19 +93,14 @@ export const LoginScreen = () => {
 
         <Button label={mutation.isPending ? 'Signing in...' : 'Sign in'} onPress={onSubmit} />
 
-        {SOCIAL_AUTH_ENABLED ? (
+        {SOCIAL_AUTH_ENABLED && googleLogin.configured ? (
           <View style={{ gap: 10 }}>
             <Button
               label="Continue with Google"
               variant="secondary"
               iconElement={<Feather name="chrome" size={18} color={theme.colors.textPrimary} />}
-              onPress={() => undefined}
-            />
-            <Button
-              label="Continue with Apple"
-              variant="secondary"
-              iconElement={<Feather name="aperture" size={18} color={theme.colors.textPrimary} />}
-              onPress={() => undefined}
+              onPress={googleLogin.signIn}
+              disabled={googleLogin.isPending}
             />
           </View>
         ) : null}
@@ -113,6 +110,7 @@ export const LoginScreen = () => {
           variant="ghost"
           onPress={() => navigation.navigate('Register' as never)}
         />
+        {googleLogin.errorMessage ? <AppText tone="urgent">{googleLogin.errorMessage}</AppText> : null}
         {mutation.isError ? <AppText tone="urgent">{errorMessage}</AppText> : null}
       </ScrollView>
     </KeyboardAvoidingView>

@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\V1\FriendRequestController;
 use App\Http\Controllers\Api\V1\FriendshipController;
 use App\Http\Controllers\Api\V1\HomeFeedController;
 use App\Http\Controllers\Api\V1\InboxController;
+use App\Http\Controllers\Api\V1\E2eeKeyController;
 use App\Http\Controllers\Api\V1\MessageController;
 use App\Http\Controllers\Api\V1\MemoryCommentController;
 use App\Http\Controllers\Api\V1\MemoryController;
@@ -34,8 +35,11 @@ require base_path('routes/channels.php');
 Route::prefix('v1')->group(function () {
     Route::prefix('auth')->group(function () {
         // Auth endpoints are prime targets for abuse; keep them rate-limited.
-        Route::post('register', [AuthController::class, 'register'])->middleware('throttle:5,1');
-        Route::post('login', [AuthController::class, 'login'])->middleware('throttle:10,1');
+        Route::get('anti-bot', [AuthController::class, 'antiBot']);
+        Route::get('turnstile', [AuthController::class, 'turnstile']);
+        Route::post('google', [AuthController::class, 'google'])->middleware('throttle:login');
+        Route::post('register', [AuthController::class, 'register'])->middleware('throttle:register');
+        Route::post('login', [AuthController::class, 'login'])->middleware('throttle:login');
     });
 
     Route::middleware('auth:sanctum')->group(function () {
@@ -116,7 +120,7 @@ Route::prefix('v1')->group(function () {
             });
 
             Route::prefix('memories')->group(function () {
-                Route::post('/', [MemoryController::class, 'store']);
+                Route::post('/', [MemoryController::class, 'store'])->middleware('throttle:posts');
                 Route::get('public', [MemoryController::class, 'publicFeed']);
                 Route::get('following', [MemoryController::class, 'followingFeed']);
                 Route::get('connections', [MemoryController::class, 'connectionsFeed']);
@@ -197,7 +201,13 @@ Route::prefix('v1')->group(function () {
                 Route::post('{call}/signal', [CallController::class, 'signal']);
             });
 
-            Route::post('messages', [MessageController::class, 'store']);
+            Route::prefix('e2ee')->group(function () {
+                Route::get('key/me', [E2eeKeyController::class, 'me']);
+                Route::post('key', [E2eeKeyController::class, 'store']);
+                Route::get('key/{user}', [E2eeKeyController::class, 'show']);
+            });
+
+            Route::post('messages', [MessageController::class, 'store'])->middleware('throttle:messages');
             Route::get('messages/unread-count', [MessageController::class, 'unreadCount']);
             Route::get('messages/unread-by-sender', [MessageController::class, 'unreadBySender']);
             Route::get('messages/thread/{user}', [MessageController::class, 'thread']);

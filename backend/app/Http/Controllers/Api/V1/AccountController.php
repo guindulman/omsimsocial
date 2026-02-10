@@ -5,12 +5,17 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\UserResource;
 use App\Models\Profile;
+use App\Services\Moderation\ImageModerationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 
 class AccountController extends Controller
 {
+    public function __construct(
+        private readonly ImageModerationService $moderation,
+    ) {}
+
     public function updateProfile(Request $request)
     {
         $user = $request->user();
@@ -114,8 +119,17 @@ class AccountController extends Controller
             'file' => ['required', 'image', 'max:5120'],
         ]);
 
+        $file = $request->file('file');
+        $decision = $this->moderation->moderate($file);
+        if (! ($decision['allowed'] ?? false)) {
+            return response()->json([
+                'code' => $decision['code'] ?? 'explicit_content_blocked',
+                'message' => $decision['message'] ?? 'Upload rejected.',
+            ], 422);
+        }
+
         $disk = 'public';
-        $path = $request->file('file')->storePublicly("profiles/{$user->id}/avatar", [
+        $path = $file->storePublicly("profiles/{$user->id}/avatar", [
             'disk' => $disk,
         ]);
 
@@ -136,8 +150,17 @@ class AccountController extends Controller
             'file' => ['required', 'image', 'max:5120'],
         ]);
 
+        $file = $request->file('file');
+        $decision = $this->moderation->moderate($file);
+        if (! ($decision['allowed'] ?? false)) {
+            return response()->json([
+                'code' => $decision['code'] ?? 'explicit_content_blocked',
+                'message' => $decision['message'] ?? 'Upload rejected.',
+            ], 422);
+        }
+
         $disk = 'public';
-        $path = $request->file('file')->storePublicly("profiles/{$user->id}/cover", [
+        $path = $file->storePublicly("profiles/{$user->id}/cover", [
             'disk' => $disk,
         ]);
 
