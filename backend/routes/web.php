@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\AuthController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\ContactController;
+use App\Http\Controllers\DataDeletionController;
 use App\Http\Controllers\LandingController;
 use Illuminate\Support\Facades\Route;
 
@@ -10,6 +11,10 @@ Route::get('/', [LandingController::class, 'index'])->name('landing');
 
 Route::view('/terms', 'legal.terms')->name('terms');
 Route::view('/privacy', 'legal.privacy')->name('privacy');
+Route::get('/data-deletion', [DataDeletionController::class, 'show'])->name('data-deletion.show');
+Route::post('/data-deletion', [DataDeletionController::class, 'submit'])
+    ->middleware('throttle:10,1')
+    ->name('data-deletion.submit');
 
 Route::get('/contact', [ContactController::class, 'show'])->name('contact.show');
 Route::post('/contact', [ContactController::class, 'store'])
