@@ -71,9 +71,22 @@ class AppServiceProvider extends ServiceProvider
             $emailKey = $email !== '' ? "email:{$email}" : 'email:missing';
 
             return [
-                Limit::perMinute(5)->by("ip:{$ip}"),
-                Limit::perMinute(3)->by($emailKey),
-                Limit::perHour(50)->by("ip:{$ip}"),
+                Limit::perMinute(3)->by("ip:{$ip}"),
+                Limit::perHour(12)->by("ip:{$ip}"),
+                Limit::perHour(6)->by($emailKey),
+            ];
+        });
+
+        RateLimiter::for('data-deletion', function (Request $request) {
+            $ip = $request->ip() ?: 'unknown';
+            $email = strtolower(trim((string) $request->input('email', '')));
+            $username = strtolower(trim((string) $request->input('username', '')));
+            $identifier = $email !== '' ? "email:{$email}" : ($username !== '' ? "username:{$username}" : 'identifier:missing');
+
+            return [
+                Limit::perMinute(3)->by("ip:{$ip}"),
+                Limit::perHour(10)->by("ip:{$ip}"),
+                Limit::perHour(4)->by($identifier),
             ];
         });
 

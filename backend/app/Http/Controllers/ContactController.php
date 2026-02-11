@@ -5,7 +5,9 @@ namespace App\Http\Controllers;
 use App\Models\ContactMessage;
 use App\Services\TurnstileVerifier;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class ContactController extends Controller
 {
@@ -21,6 +23,12 @@ class ContactController extends Controller
             return redirect()
                 ->route('contact.show')
                 ->with('contact_message', "Thanks! We'll get back to you soon.");
+        }
+
+        if ($this->hasInvalidFormGuard($request, 'contact')) {
+            return back()
+                ->withErrors(['form' => 'Please wait a moment and try again.'])
+                ->withInput();
         }
 
         if ((bool) config('turnstile.required')) {
@@ -45,6 +53,28 @@ class ContactController extends Controller
             'message' => ['required', 'string', 'max:2000'],
         ]);
 
+        // Keep this lightweight: many spam runs send several URLs in one message.
+        $linkCount = preg_match_all('/(?:https?:\/\/|www\.)/i', (string) $validated['message']);
+        if ($linkCount !== false && $linkCount > 3) {
+            return back()
+                ->withErrors(['message' => 'Please reduce links in your message and try again.'])
+                ->withInput();
+        }
+
+        $fingerprint = hash('sha256', implode('|', [
+            strtolower(trim((string) $validated['email'])),
+            Str::lower(trim((string) $validated['name'])),
+            Str::lower(trim((string) $validated['message'])),
+            (string) ($request->ip() ?: 'unknown'),
+        ]));
+
+        // Drop repeated payload bursts without punishing normal users.
+        if (! Cache::add("contact:dedupe:{$fingerprint}", '1', now()->addMinutes(10))) {
+            return redirect()
+                ->route('contact.show')
+                ->with('contact_message', "Thanks! We'll get back to you soon.");
+        }
+
         $message = "Thanks! We'll get back to you soon.";
 
         try {
@@ -67,5 +97,24 @@ class ContactController extends Controller
         return redirect()
             ->route('contact.show')
             ->with('contact_message', $message);
+    }
+
+    private function hasInvalidFormGuard(Request $request, string $context): bool
+    {
+        $issuedAt = (int) $request->input('_issued_at', 0);
+        $signature = trim((string) $request->input('_sig', ''));
+
+        if ($issuedAt <= 0 || $signature === '') {
+            return true;
+        }
+
+        $expected = hash_hmac('sha256', "{$context}|{$issuedAt}", (string) config('app.key'));
+        if (! hash_equals($expected, $signature)) {
+            return true;
+        }
+
+        $ageSeconds = now()->timestamp - $issuedAt;
+
+        return $ageSeconds < 2 || $ageSeconds > 21600;
     }
 }

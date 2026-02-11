@@ -13,7 +13,7 @@ Route::view('/terms', 'legal.terms')->name('terms');
 Route::view('/privacy', 'legal.privacy')->name('privacy');
 Route::get('/data-deletion', [DataDeletionController::class, 'show'])->name('data-deletion.show');
 Route::post('/data-deletion', [DataDeletionController::class, 'submit'])
-    ->middleware('throttle:10,1')
+    ->middleware('throttle:data-deletion')
     ->name('data-deletion.submit');
 
 Route::get('/contact', [ContactController::class, 'show'])->name('contact.show');

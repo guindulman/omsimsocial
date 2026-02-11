@@ -12,6 +12,16 @@ class DataDeletionRequestTest extends TestCase
 {
     use RefreshDatabase;
 
+    private function antiSpamFields(): array
+    {
+        $issuedAt = now()->subSeconds(5)->timestamp;
+
+        return [
+            '_issued_at' => $issuedAt,
+            '_sig' => hash_hmac('sha256', 'data-deletion|'.$issuedAt, (string) config('app.key')),
+        ];
+    }
+
     public function test_data_deletion_page_is_public(): void
     {
         $response = $this->get('/data-deletion');
@@ -30,7 +40,7 @@ class DataDeletionRequestTest extends TestCase
             'request_types' => ['account'],
             'details' => 'Please delete my data.',
             'website' => '',
-        ]);
+        ] + $this->antiSpamFields());
 
         $response->assertSessionHasErrors(['email', 'username']);
         Mail::assertNothingSent();
@@ -47,7 +57,7 @@ class DataDeletionRequestTest extends TestCase
             'request_types' => ['profile', 'messages'],
             'details' => 'Please delete my profile and messages.',
             'website' => '',
-        ]);
+        ] + $this->antiSpamFields());
 
         $response->assertRedirect('/data-deletion');
         $response->assertSessionHas('data_deletion_message');
@@ -68,11 +78,28 @@ class DataDeletionRequestTest extends TestCase
             'email' => 'tester@example.com',
             'request_types' => ['account'],
             'website' => 'https://spam.example.com',
+        ] + $this->antiSpamFields());
+
+        $response->assertRedirect('/data-deletion');
+        $response->assertSessionHas('data_deletion_message');
+        Mail::assertNothingSent();
+        $this->assertDatabaseCount('data_deletion_requests', 0);
+    }
+
+    public function test_data_deletion_submit_requires_valid_form_guard(): void
+    {
+        Mail::fake();
+
+        $response = $this->post('/data-deletion', [
+            'email' => 'tester@example.com',
+            'request_types' => ['account'],
+            'website' => '',
+            '_issued_at' => now()->subSeconds(5)->timestamp,
+            '_sig' => 'invalid',
         ]);
 
-        $response->assertSessionHasErrors(['website']);
+        $response->assertSessionHasErrors(['form']);
         Mail::assertNothingSent();
         $this->assertDatabaseCount('data_deletion_requests', 0);
     }
 }
-

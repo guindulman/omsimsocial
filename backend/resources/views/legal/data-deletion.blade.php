@@ -119,6 +119,12 @@
 
                             <form action="{{ route('data-deletion.submit') }}" method="POST" class="grid gap-4">
                                 @csrf
+                                @php
+                                    $issuedAt = now()->timestamp;
+                                    $formSig = hash_hmac('sha256', 'data-deletion|'.$issuedAt, (string) config('app.key'));
+                                @endphp
+                                <input type="hidden" name="_issued_at" value="{{ $issuedAt }}" />
+                                <input type="hidden" name="_sig" value="{{ $formSig }}" />
 
                                 <div style="position:absolute; left:-10000px; top:auto; width:1px; height:1px; overflow:hidden;" aria-hidden="true">
                                     <label>
@@ -126,6 +132,12 @@
                                         <input type="text" name="website" tabindex="-1" autocomplete="off" value="" />
                                     </label>
                                 </div>
+
+                                @error('form')
+                                    <p class="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300">
+                                        {{ $message }}
+                                    </p>
+                                @enderror
 
                                 <div>
                                     <label for="full_name" class="text-sm font-semibold text-zinc-900 dark:text-white">
@@ -250,4 +262,3 @@
         </main>
     </div>
 @endsection
-
