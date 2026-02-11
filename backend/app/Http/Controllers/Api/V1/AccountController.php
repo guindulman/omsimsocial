@@ -23,7 +23,7 @@ class AccountController extends Controller
         $payload = $request->validate([
             'name' => ['sometimes', 'string', 'min:2'],
             'username' => ['sometimes', 'string', 'min:2', 'unique:users,username,'.$user->id],
-            'email' => ['sometimes', 'nullable', 'email', 'unique:users,email,'.$user->id],
+            'email' => ['sometimes', 'email', 'unique:users,email,'.$user->id],
             'phone' => ['sometimes', 'nullable', 'string', 'unique:users,phone,'.$user->id],
             'bio' => ['sometimes', 'nullable', 'string', 'max:120'],
             'city' => ['sometimes', 'nullable', 'string'],
@@ -56,11 +56,20 @@ class AccountController extends Controller
             'phone' => $phone,
         ]);
 
-        if ($email !== $user->getOriginal('email')) {
+        $emailChanged = $email !== $user->getOriginal('email');
+        if ($emailChanged) {
             $user->email_verified_at = null;
         }
 
         $user->save();
+
+        if ($emailChanged) {
+            try {
+                $user->sendEmailVerificationNotification();
+            } catch (\Throwable $e) {
+                report($e);
+            }
+        }
 
         $profile = Profile::query()->firstOrNew(['user_id' => $user->id]);
         $profile->fill([
@@ -121,7 +130,7 @@ class AccountController extends Controller
 
         $file = $request->file('file');
         $decision = $this->moderation->moderate($file);
-        if (! ($decision['allowed'] ?? false)) {
+        if (! ($decision['allowed'] ?? false) && ! $this->shouldBypassModerationFailure($decision)) {
             return response()->json([
                 'code' => $decision['code'] ?? 'explicit_content_blocked',
                 'message' => $decision['message'] ?? 'Upload rejected.',
@@ -152,7 +161,7 @@ class AccountController extends Controller
 
         $file = $request->file('file');
         $decision = $this->moderation->moderate($file);
-        if (! ($decision['allowed'] ?? false)) {
+        if (! ($decision['allowed'] ?? false) && ! $this->shouldBypassModerationFailure($decision)) {
             return response()->json([
                 'code' => $decision['code'] ?? 'explicit_content_blocked',
                 'message' => $decision['message'] ?? 'Upload rejected.',
@@ -195,5 +204,21 @@ class AccountController extends Controller
         return response()->json([
             'user' => UserResource::make($user->load('profile')),
         ]);
+    }
+
+    /**
+     * Allow avatar/cover uploads to proceed when moderation infrastructure is unavailable.
+     * Explicit-content decisions remain blocking.
+     *
+     * @param  array<string, mixed>  $decision
+     */
+    private function shouldBypassModerationFailure(array $decision): bool
+    {
+        $code = $decision['code'] ?? null;
+
+        return in_array($code, [
+            'moderation_unavailable',
+            'moderation_not_configured',
+        ], true);
     }
 }

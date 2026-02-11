@@ -59,6 +59,8 @@ class ImageModerationService
         try {
             $result = $this->googleVision->detect($file);
         } catch (\Throwable $e) {
+            report($e);
+
             $failClosed = (bool) config('moderation.fail_closed', true);
             return $failClosed
                 ? [
@@ -105,4 +107,3 @@ class ImageModerationService
         return self::LIKELIHOOD_SCORES[$value] ?? self::LIKELIHOOD_SCORES['LIKELY'];
     }
 }
-

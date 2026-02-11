@@ -71,7 +71,7 @@ class MessageController extends Controller
 
             if ($mediaType === 'image') {
                 $decision = $moderation->moderate($file);
-                if (! ($decision['allowed'] ?? false)) {
+                if (! ($decision['allowed'] ?? false) && ! $this->shouldBypassModerationFailure($decision)) {
                     return response()->json([
                         'code' => $decision['code'] ?? 'explicit_content_blocked',
                         'message' => $decision['message'] ?? 'Upload rejected.',
@@ -252,5 +252,21 @@ class MessageController extends Controller
         return response()->json([
             'data' => $data,
         ]);
+    }
+
+    /**
+     * Allow image uploads to proceed when moderation infrastructure is unavailable.
+     * Explicit-content decisions remain blocking.
+     *
+     * @param  array<string, mixed>  $decision
+     */
+    private function shouldBypassModerationFailure(array $decision): bool
+    {
+        $code = $decision['code'] ?? null;
+
+        return in_array($code, [
+            'moderation_unavailable',
+            'moderation_not_configured',
+        ], true);
     }
 }
