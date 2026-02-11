@@ -252,6 +252,70 @@ class DashboardController extends Controller
         ]);
     }
 
+    public function spamGuard(Request $request)
+    {
+        $surface = $this->sanitizeSpamGuardKey($request->string('surface')->toString());
+        $reason = $this->sanitizeSpamGuardKey($request->string('reason')->toString());
+        $hours = max(1, min(168, (int) $request->integer('hours', 24)));
+        $since = now()->subHours($hours);
+
+        $query = AdminAuditLog::query()
+            ->where('action', 'like', 'spam.blocked.%')
+            ->where('created_at', '>=', $since);
+
+        if ($surface !== '') {
+            $query->where('action', 'like', "spam.blocked.{$surface}.%");
+        }
+
+        if ($reason !== '') {
+            $query->where('action', 'like', "%.{$reason}");
+        }
+
+        $logs = $query
+            ->orderByDesc('created_at')
+            ->paginate(50)
+            ->withQueryString();
+
+        $statsWindow = AdminAuditLog::query()
+            ->where('action', 'like', 'spam.blocked.%')
+            ->where('created_at', '>=', now()->subDay())
+            ->orderByDesc('created_at')
+            ->limit(500)
+            ->get();
+
+        $stats = [
+            'last_24h' => $statsWindow->count(),
+            'contact_24h' => $statsWindow->filter(fn (AdminAuditLog $row) => str_contains($row->action, 'spam.blocked.contact.'))->count(),
+            'data_deletion_24h' => $statsWindow->filter(fn (AdminAuditLog $row) => str_contains($row->action, 'spam.blocked.data_deletion.'))->count(),
+            'top_reason_24h' => $statsWindow
+                ->map(fn (AdminAuditLog $row) => $this->reasonFromAction($row->action))
+                ->filter()
+                ->countBy()
+                ->sortDesc()
+                ->keys()
+                ->first() ?? null,
+        ];
+
+        $topIps = $statsWindow
+            ->map(fn (AdminAuditLog $row) => data_get($row->metadata, 'ip'))
+            ->filter(fn ($ip) => is_string($ip) && $ip !== '')
+            ->countBy()
+            ->sortDesc()
+            ->take(8);
+
+        return view('admin.spam-guard', [
+            'adminName' => config('admin.name'),
+            'logs' => $logs,
+            'surface' => $surface,
+            'reason' => $reason,
+            'hours' => $hours,
+            'stats' => $stats,
+            'topIps' => $topIps,
+            'surfaceOptions' => ['contact', 'data_deletion'],
+            'reasonOptions' => ['honeypot', 'form_guard', 'turnstile_missing', 'turnstile_failed', 'too_many_links', 'duplicate_payload'],
+        ]);
+    }
+
     public function toggleUser(User $user)
     {
         $user->is_active = ! $user->is_active;
@@ -493,5 +557,20 @@ class DashboardController extends Controller
             : ($note !== '' ? $note : $templateBody);
 
         return substr($combined, 0, 2000);
+    }
+
+    private function sanitizeSpamGuardKey(string $value): string
+    {
+        $normalized = strtolower(trim($value));
+        $normalized = preg_replace('/[^a-z0-9_]/', '', $normalized) ?? '';
+
+        return $normalized;
+    }
+
+    private function reasonFromAction(string $action): ?string
+    {
+        $parts = explode('.', $action);
+
+        return $parts[3] ?? null;
     }
 }

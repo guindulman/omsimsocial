@@ -723,6 +723,14 @@
               <span>Audit log</span>
               <small>History</small>
             </a>
+            <a
+              href="{{ route('admin.spam-guard') }}"
+              class="nav-item {{ request()->routeIs('admin.spam-guard') ? 'active' : '' }}"
+              @if (request()->routeIs('admin.spam-guard')) aria-current="page" @endif
+            >
+              <span>Spam guard</span>
+              <small>Blocked forms</small>
+            </a>
           </nav>
           <div class="sidebar__footer">
             <span class="muted">Secure access</span>
@@ -793,6 +801,15 @@
             >
               <span>Audit log</span>
               <small>History</small>
+            </a>
+            <a
+              href="{{ route('admin.spam-guard') }}"
+              class="nav-item {{ request()->routeIs('admin.spam-guard') ? 'active' : '' }}"
+              @if (request()->routeIs('admin.spam-guard')) aria-current="page" @endif
+              data-admin-mobile-nav-link
+            >
+              <span>Spam guard</span>
+              <small>Blocked forms</small>
             </a>
           </nav>
         </div>

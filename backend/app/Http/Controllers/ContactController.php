@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\ContactMessage;
+use App\Services\SpamAttemptLogger;
 use App\Services\TurnstileVerifier;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -16,16 +17,22 @@ class ContactController extends Controller
         return view('contact');
     }
 
-    public function store(Request $request, TurnstileVerifier $turnstile)
+    public function store(Request $request, TurnstileVerifier $turnstile, SpamAttemptLogger $spamLogger)
     {
         // Honeypot: bots commonly fill every field. Humans will never see this input.
         if (trim((string) $request->input('company', '')) !== '') {
+            $spamLogger->blocked('contact', 'honeypot', $request, [
+                'field' => 'company',
+            ]);
+
             return redirect()
                 ->route('contact.show')
                 ->with('contact_message', "Thanks! We'll get back to you soon.");
         }
 
         if ($this->hasInvalidFormGuard($request, 'contact')) {
+            $spamLogger->blocked('contact', 'form_guard', $request);
+
             return back()
                 ->withErrors(['form' => 'Please wait a moment and try again.'])
                 ->withInput();
@@ -34,6 +41,8 @@ class ContactController extends Controller
         if ((bool) config('turnstile.required')) {
             $token = trim((string) $request->input('cf-turnstile-response', ''));
             if ($token === '') {
+                $spamLogger->blocked('contact', 'turnstile_missing', $request);
+
                 return back()
                     ->withErrors(['turnstile' => 'Please complete the anti-bot check.'])
                     ->withInput();
@@ -41,6 +50,10 @@ class ContactController extends Controller
 
             $result = $turnstile->verify($token, $request->ip());
             if (! $result['success']) {
+                $spamLogger->blocked('contact', 'turnstile_failed', $request, [
+                    'turnstile_errors' => $result['error_codes'] ?? [],
+                ]);
+
                 return back()
                     ->withErrors(['turnstile' => 'Anti-bot verification failed. Please try again.'])
                     ->withInput();
@@ -56,6 +69,10 @@ class ContactController extends Controller
         // Keep this lightweight: many spam runs send several URLs in one message.
         $linkCount = preg_match_all('/(?:https?:\/\/|www\.)/i', (string) $validated['message']);
         if ($linkCount !== false && $linkCount > 3) {
+            $spamLogger->blocked('contact', 'too_many_links', $request, [
+                'link_count' => $linkCount,
+            ]);
+
             return back()
                 ->withErrors(['message' => 'Please reduce links in your message and try again.'])
                 ->withInput();
@@ -70,6 +87,10 @@ class ContactController extends Controller
 
         // Drop repeated payload bursts without punishing normal users.
         if (! Cache::add("contact:dedupe:{$fingerprint}", '1', now()->addMinutes(10))) {
+            $spamLogger->blocked('contact', 'duplicate_payload', $request, [
+                'fingerprint' => substr($fingerprint, 0, 16),
+            ]);
+
             return redirect()
                 ->route('contact.show')
                 ->with('contact_message', "Thanks! We'll get back to you soon.");

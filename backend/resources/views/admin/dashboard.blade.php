@@ -92,6 +92,7 @@
           <a href="{{ route('admin.users') }}" class="btn btn-primary">Manage users</a>
           <a href="{{ route('admin.reports') }}" class="btn btn-ghost">Review reports</a>
           <a href="{{ route('admin.audit') }}" class="btn btn-ghost">Audit log</a>
+          <a href="{{ route('admin.spam-guard') }}" class="btn btn-ghost">Spam guard</a>
         </div>
       </div>
       <div class="card">

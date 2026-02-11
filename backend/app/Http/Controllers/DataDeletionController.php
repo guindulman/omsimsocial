@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Mail\DataDeletionRequestSubmitted;
 use App\Models\DataDeletionRequest;
+use App\Services\SpamAttemptLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Mail;
@@ -21,16 +22,22 @@ class DataDeletionController extends Controller
         ]);
     }
 
-    public function submit(Request $request)
+    public function submit(Request $request, SpamAttemptLogger $spamLogger)
     {
         // Honeypot: bots often fill hidden fields automatically.
         if (trim((string) $request->input('website', '')) !== '') {
+            $spamLogger->blocked('data-deletion', 'honeypot', $request, [
+                'field' => 'website',
+            ]);
+
             return redirect()
                 ->route('data-deletion.show')
                 ->with('data_deletion_message', 'Your request has been received. If valid, we will process it.');
         }
 
         if ($this->hasInvalidFormGuard($request, 'data-deletion')) {
+            $spamLogger->blocked('data-deletion', 'form_guard', $request);
+
             throw ValidationException::withMessages([
                 'form' => 'Please wait a moment and try again.',
             ]);
@@ -58,6 +65,10 @@ class DataDeletionController extends Controller
         ]));
 
         if (! Cache::add("data-deletion:dedupe:{$fingerprint}", '1', now()->addMinutes(30))) {
+            $spamLogger->blocked('data-deletion', 'duplicate_payload', $request, [
+                'fingerprint' => substr($fingerprint, 0, 16),
+            ]);
+
             return redirect()
                 ->route('data-deletion.show')
                 ->with('data_deletion_message', 'Your request has been received. If valid, we will process it.');

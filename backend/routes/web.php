@@ -40,6 +40,7 @@ Route::post('/contact', [ContactController::class, 'store'])
         Route::post('users/bulk', [DashboardController::class, 'bulkUsers'])->name('admin.users.bulk');
         Route::get('reports', [DashboardController::class, 'reports'])->name('admin.reports');
         Route::get('audit', [DashboardController::class, 'audit'])->name('admin.audit');
+        Route::get('spam-guard', [DashboardController::class, 'spamGuard'])->name('admin.spam-guard');
         Route::delete('memories/{memory}', [DashboardController::class, 'deleteMemory'])->name('admin.memories.delete');
         Route::delete('comments/{comment}', [DashboardController::class, 'deleteComment'])->name('admin.comments.delete');
         Route::delete('messages/{message}', [DashboardController::class, 'deleteMessage'])->name('admin.messages.delete');
