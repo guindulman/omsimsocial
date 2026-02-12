@@ -47,6 +47,12 @@
                 Privacy
             </a>
             <a
+                href="{{ route('child-safety') }}"
+                class="rounded-lg px-3 py-2 text-zinc-600 hover:text-zinc-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1E40FF] focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-50 dark:text-zinc-300 dark:hover:text-white dark:focus-visible:ring-offset-zinc-950"
+            >
+                Child Safety
+            </a>
+            <a
                 href="{{ route('contact.show') }}"
                 class="rounded-lg px-3 py-2 text-zinc-600 hover:text-zinc-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1E40FF] focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-50 dark:text-zinc-300 dark:hover:text-white dark:focus-visible:ring-offset-zinc-950"
             >

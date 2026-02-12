@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\AuthController;
 use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\ChildSafetyController;
 use App\Http\Controllers\ContactController;
 use App\Http\Controllers\DataDeletionController;
 use App\Http\Controllers\LandingController;
@@ -11,6 +12,7 @@ Route::get('/', [LandingController::class, 'index'])->name('landing');
 
 Route::view('/terms', 'legal.terms')->name('terms');
 Route::view('/privacy', 'legal.privacy')->name('privacy');
+Route::get('/child-safety', [ChildSafetyController::class, 'show'])->name('child-safety');
 Route::get('/data-deletion', [DataDeletionController::class, 'show'])->name('data-deletion.show');
 Route::post('/data-deletion', [DataDeletionController::class, 'submit'])
     ->middleware('throttle:data-deletion')
