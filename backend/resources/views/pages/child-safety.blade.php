@@ -63,7 +63,7 @@
                             <li>In-app reporting: Users can report profiles, posts, comments, and messages using the "Report" option inside the app.</li>
                             <li>
                                 Email reporting: Users may report CSAE/CSAM concerns to
-                                <a href="mailto:mailer@omsimsocial.com" class="font-semibold text-[#1E40FF] hover:underline">mailer@omsimsocial.com</a>.
+                                <a href="mailto:web2signin@gmail.com" class="font-semibold text-[#1E40FF] hover:underline">web2signin@gmail.com</a>.
                             </li>
                             <li>When reporting, include relevant details like username, link, or screenshot without describing harmful content.</li>
                         </ul>
@@ -90,7 +90,7 @@
                         <ul class="mt-3 list-disc space-y-2 pl-5 text-sm text-zinc-700 dark:text-zinc-200">
                             <li>
                                 Child safety contact:
-                                <a href="mailto:mailer@omsimsocial.com" class="font-semibold text-[#1E40FF] hover:underline">mailer@omsimsocial.com</a>
+                                <a href="mailto:web2signin@gmail.com" class="font-semibold text-[#1E40FF] hover:underline">web2signin@gmail.com</a>
                             </li>
                         </ul>
                     </section>
