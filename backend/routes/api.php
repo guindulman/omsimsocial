@@ -37,14 +37,22 @@ Route::prefix('v1')->group(function () {
         // Auth endpoints are prime targets for abuse; keep them rate-limited.
         Route::get('anti-bot', [AuthController::class, 'antiBot']);
         Route::get('turnstile', [AuthController::class, 'turnstile']);
+        Route::get('email/verify/{id}/{hash}', [AuthController::class, 'verifyEmail'])
+            ->name('verification.verify')
+            ->middleware(['signed', 'throttle:6,1']);
         Route::post('google', [AuthController::class, 'google'])->middleware('throttle:login');
         Route::post('register', [AuthController::class, 'register'])->middleware('throttle:register');
         Route::post('login', [AuthController::class, 'login'])->middleware('throttle:login');
+        Route::post('refresh', [AuthController::class, 'refresh'])->middleware('throttle:login');
+        Route::post('forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:6,1');
+        Route::post('reset-password', [AuthController::class, 'resetPassword'])->middleware('throttle:6,1');
     });
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::prefix('auth')->group(function () {
             Route::post('logout', [AuthController::class, 'logout']);
+            Route::post('email/verification-notification', [AuthController::class, 'resendEmailVerification'])
+                ->middleware('throttle:6,1');
         });
 
         Route::get('me', [AuthController::class, 'me']);
@@ -120,7 +128,7 @@ Route::prefix('v1')->group(function () {
             });
 
             Route::prefix('memories')->group(function () {
-                Route::post('/', [MemoryController::class, 'store'])->middleware('throttle:posts');
+                Route::post('/', [MemoryController::class, 'store'])->middleware(['verified.email', 'throttle:posts']);
                 Route::get('public', [MemoryController::class, 'publicFeed']);
                 Route::get('following', [MemoryController::class, 'followingFeed']);
                 Route::get('connections', [MemoryController::class, 'connectionsFeed']);
@@ -207,10 +215,14 @@ Route::prefix('v1')->group(function () {
                 Route::get('key/{user}', [E2eeKeyController::class, 'show']);
             });
 
-            Route::post('messages', [MessageController::class, 'store'])->middleware('throttle:messages');
+            Route::post('messages', [MessageController::class, 'store'])->middleware(['verified.email', 'throttle:messages']);
+            Route::get('messages/conversations', [MessageController::class, 'conversations']);
             Route::get('messages/unread-count', [MessageController::class, 'unreadCount']);
             Route::get('messages/unread-by-sender', [MessageController::class, 'unreadBySender']);
             Route::get('messages/thread/{user}', [MessageController::class, 'thread']);
+            Route::post('messages/thread/{user}/read', [MessageController::class, 'markThreadRead']);
+            Route::post('messages/{message}/reaction', [MessageController::class, 'react'])->middleware('throttle:reactions');
+            Route::delete('messages/{message}/reaction', [MessageController::class, 'unreact'])->middleware('throttle:reactions');
             Route::delete('messages/{message}', [MessageController::class, 'destroy']);
             Route::delete('messages/{message}/unsend', [MessageController::class, 'unsend']);
         });

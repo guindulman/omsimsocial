@@ -24,13 +24,35 @@ class MessageResource extends JsonResource
             ];
         }
 
+        $reactions = [];
+        $myReaction = null;
+        if ($this->relationLoaded('reactions')) {
+            $grouped = $this->reactions
+                ->groupBy('reaction')
+                ->map(fn ($items, $reaction) => [
+                    'reaction' => $reaction,
+                    'count' => $items->count(),
+                ])
+                ->values();
+
+            $reactions = $grouped->all();
+            $viewerId = $request->user()?->id;
+            if ($viewerId) {
+                $myReaction = $this->reactions->firstWhere('user_id', $viewerId)?->reaction;
+            }
+        }
+
         return [
             'id' => $this->id,
+            'conversation_id' => $this->conversation_id,
             'body' => $e2ee ? null : $this->body,
             'e2ee' => $e2ee,
             'media_url' => $this->media_url,
             'media_type' => $this->media_type,
+            'delivered_at' => $this->delivered_at,
             'read_at' => $this->read_at,
+            'reactions' => $reactions,
+            'my_reaction' => $myReaction,
             'sender' => UserResource::make($this->whenLoaded('sender')),
             'recipient' => UserResource::make($this->whenLoaded('recipient')),
             'created_at' => $this->created_at,

@@ -36,7 +36,7 @@ class MessageSent implements ShouldBroadcastNow
 
     public function broadcastWith(): array
     {
-        $this->message->loadMissing(['sender.profile', 'recipient.profile']);
+        $this->message->loadMissing(['sender.profile', 'recipient.profile', 'reactions']);
 
         return [
             'message' => MessageResource::make($this->message)->resolve(),
