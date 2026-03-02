@@ -254,5 +254,11 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('messages/{message}/reaction', [MessageController::class, 'unreact'])->middleware('throttle:reactions');
         Route::delete('messages/{message}', [MessageController::class, 'destroy']);
         Route::delete('messages/{message}/unsend', [MessageController::class, 'unsend']);
+
+        Route::prefix('e2ee')->group(function () {
+            Route::get('key/me', [E2eeKeyController::class, 'me']);
+            Route::post('key', [E2eeKeyController::class, 'store']);
+            Route::get('key/{user}', [E2eeKeyController::class, 'show']);
+        });
     });
 });
