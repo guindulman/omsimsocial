@@ -228,3 +228,23 @@ Route::prefix('v1')->group(function () {
         });
     });
 });
+
+/*
+|--------------------------------------------------------------------------
+| Backward-Compatible API Aliases
+|--------------------------------------------------------------------------
+|
+| Keep legacy /api paths working for older mobile builds while newer
+| builds use /api/v1. These aliases can be removed after full client
+| rollout to v1 endpoints.
+|
+*/
+Route::middleware('auth:sanctum')->group(function () {
+    Route::post('auth/email/verification-notification', [AuthController::class, 'resendEmailVerification'])
+        ->middleware('throttle:6,1');
+
+    Route::middleware('active')->group(function () {
+        Route::post('messages/{message}/reaction', [MessageController::class, 'react'])->middleware('throttle:reactions');
+        Route::delete('messages/{message}/reaction', [MessageController::class, 'unreact'])->middleware('throttle:reactions');
+    });
+});
