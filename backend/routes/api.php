@@ -244,7 +244,15 @@ Route::middleware('auth:sanctum')->group(function () {
         ->middleware('throttle:6,1');
 
     Route::middleware('active')->group(function () {
+        Route::post('messages', [MessageController::class, 'store'])->middleware(['verified.email', 'throttle:messages']);
+        Route::get('messages/conversations', [MessageController::class, 'conversations']);
+        Route::get('messages/unread-count', [MessageController::class, 'unreadCount']);
+        Route::get('messages/unread-by-sender', [MessageController::class, 'unreadBySender']);
+        Route::get('messages/thread/{user}', [MessageController::class, 'thread']);
+        Route::post('messages/thread/{user}/read', [MessageController::class, 'markThreadRead']);
         Route::post('messages/{message}/reaction', [MessageController::class, 'react'])->middleware('throttle:reactions');
         Route::delete('messages/{message}/reaction', [MessageController::class, 'unreact'])->middleware('throttle:reactions');
+        Route::delete('messages/{message}', [MessageController::class, 'destroy']);
+        Route::delete('messages/{message}/unsend', [MessageController::class, 'unsend']);
     });
 });
