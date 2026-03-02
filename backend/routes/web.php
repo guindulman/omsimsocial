@@ -12,6 +12,9 @@ Route::get('/', [LandingController::class, 'index'])->name('landing');
 
 Route::view('/terms', 'legal.terms')->name('terms');
 Route::view('/privacy', 'legal.privacy')->name('privacy');
+Route::get('/api/storage/{path}', function (string $path) {
+    return redirect('/storage/'.$path, 301);
+})->where('path', '.*');
 Route::get('/child-safety', [ChildSafetyController::class, 'show'])->name('child-safety');
 Route::get('/data-deletion', [DataDeletionController::class, 'show'])->name('data-deletion.show');
 Route::post('/data-deletion', [DataDeletionController::class, 'submit'])

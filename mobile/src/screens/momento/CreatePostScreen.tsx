@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -33,10 +33,12 @@ import { createPostSeed } from '../../utils/postCover';
 
 export const CreatePostScreen = () => {
   const theme = useTheme();
-  const navigation = useNavigation();
+  const navigation = useNavigation<any>();
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
   const currentUser = useAuthStore((state) => state.user);
+  const setAuthUser = useAuthStore((state) => state.setUser);
+  const isEmailVerified = Boolean(currentUser?.email_verified || currentUser?.email_verified_at);
   const maxMediaItems = 10;
   const [caption, setCaption] = useState('');
   const [mediaItems, setMediaItems] = useState<{ uri: string; type: 'image' }[]>([]);
@@ -187,6 +189,23 @@ export const CreatePostScreen = () => {
     }
   }, [mode, shareToFeed]);
 
+  useFocusEffect(
+    React.useCallback(() => {
+      let isActive = true;
+      api
+        .me()
+        .then((response) => {
+          if (!isActive) return;
+          setAuthUser(response.user);
+        })
+        .catch(() => undefined);
+
+      return () => {
+        isActive = false;
+      };
+    }, [setAuthUser])
+  );
+
   const toggleTaggedFriend = (userId: number) => {
     setTaggedFriendIds((current) =>
       current.includes(userId) ? current.filter((id) => id !== userId) : [...current, userId]
@@ -323,25 +342,64 @@ export const CreatePostScreen = () => {
       queryClient.invalidateQueries({ queryKey: ['profile-feed'] });
       if (onlyStory && storyMemoryId) {
         navigation.getParent()?.navigate(
-          'FeedTab' as never,
+          'FeedTab',
           {
             screen: 'StoryViewer',
             params: { memoryId: storyMemoryId, memoryIds: storyMemoryIds.length ? storyMemoryIds : undefined },
-          } as never
+          }
         );
         return;
       }
       if (primaryMemoryId) {
         navigation.getParent()?.navigate(
-          'FeedTab' as never,
+          'FeedTab',
           {
             screen: 'PostDetail',
             params: { memoryId: primaryMemoryId },
-          } as never
+          }
         );
         return;
       }
       Alert.alert('Posted', message);
+    },
+  });
+
+  const resendVerificationMutation = useMutation({
+    mutationFn: () => api.resendEmailVerification(),
+    onSuccess: () => {
+      Alert.alert('Verification email sent', 'Check your inbox and open the verification link.');
+    },
+    onError: (error) => {
+      if (error instanceof ApiError) {
+        const payload = error.payload as { code?: string; message?: string } | null;
+        if (payload?.code === 'email_already_verified') {
+          const nextVerifiedAt = currentUser?.email_verified_at ?? new Date().toISOString();
+          if (currentUser) {
+            setAuthUser({
+              ...currentUser,
+              email_verified: true,
+              email_verified_at: nextVerifiedAt,
+            });
+          }
+          void api
+            .me()
+            .then((response) => {
+              setAuthUser(response.user);
+            })
+            .catch(() => undefined);
+
+          Alert.alert('Already verified', payload.message ?? 'Your email is already verified.');
+          return;
+        }
+      }
+
+      const messageText =
+        error instanceof ApiError
+          ? ((error.payload as { message?: string } | null)?.message ?? error.message)
+          : error instanceof Error
+          ? error.message
+          : 'Unable to send verification email right now.';
+      Alert.alert('Unable to resend', messageText);
     },
   });
 
@@ -505,6 +563,31 @@ export const CreatePostScreen = () => {
               </Pressable>
             ) : null}
           </View>
+
+          {!isEmailVerified ? (
+            <View
+              style={{
+                backgroundColor: theme.colors.surface,
+                borderRadius: theme.radii.md,
+                borderWidth: 1,
+                borderColor: theme.colors.urgency,
+                padding: theme.spacing.md,
+                gap: theme.spacing.sm,
+              }}
+            >
+              <AppText tone="urgent">Your email is not verified.</AppText>
+              <AppText variant="caption" tone="secondary">
+                Verify your email to post or message. We can resend the verification link now.
+              </AppText>
+              <Button
+                label={resendVerificationMutation.isPending ? 'Sending...' : 'Resend verification email'}
+                variant="secondary"
+                size="sm"
+                onPress={() => resendVerificationMutation.mutate()}
+                disabled={resendVerificationMutation.isPending}
+              />
+            </View>
+          ) : null}
 
           <SegmentedControl
             options={[
@@ -850,6 +933,13 @@ export const CreatePostScreen = () => {
           <Button
             label={postButtonLabel}
             onPress={() => {
+              if (!isEmailVerified) {
+                Alert.alert(
+                  'Email verification required',
+                  'Please verify your email before posting. Use the resend button above if needed.'
+                );
+                return;
+              }
               if (!hasText && (isPost || isStory)) {
                 Alert.alert(
                   isPost ? 'Add a caption' : 'Add story text',
@@ -867,3 +957,5 @@ export const CreatePostScreen = () => {
     </KeyboardAvoidingView>
   );
 };
+
+

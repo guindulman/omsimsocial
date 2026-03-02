@@ -4,14 +4,32 @@ import { MomentoMedia, MomentoPost, MomentoStory, MomentoUser } from '../types/m
 import { formatTimeAgo } from './time';
 import { buildGeneratedCoverUrl, extractPostSeed } from './postCover';
 
-const fallbackAvatar = (id: number) => `https://i.pravatar.cc/200?img=${(id % 70) + 1}`;
 const fallbackImage = (seed: string | number) => buildGeneratedCoverUrl(seed);
-const apiBaseUrl = API_URL.replace(/\/api\/v1\/?$/, '');
+// Support both `/api/v1` and legacy `/api` API base URLs.
+const apiBaseUrl = API_URL.replace(/\/api(?:\/v\d+)?\/?$/i, '');
 
 export const normalizeMediaUrl = (url?: string | null) => {
   if (!url) return null;
   const trimmed = url.trim();
   if (!trimmed) return null;
+
+  const absoluteLegacyApiStorage = trimmed.match(
+    /^(https?:\/\/[^/]+)\/api(?:\/v\d+)?\/storage\/(.+)$/i
+  );
+  if (absoluteLegacyApiStorage) {
+    return `${absoluteLegacyApiStorage[1]}/storage/${absoluteLegacyApiStorage[2]}`;
+  }
+
+  const relativeLegacyApiStorage = trimmed.match(/^\/api(?:\/v\d+)?\/storage\/(.+)$/i);
+  if (relativeLegacyApiStorage) {
+    return `${apiBaseUrl}/storage/${relativeLegacyApiStorage[1]}`;
+  }
+
+  const bareLegacyApiStorage = trimmed.match(/^api(?:\/v\d+)?\/storage\/(.+)$/i);
+  if (bareLegacyApiStorage) {
+    return `${apiBaseUrl}/storage/${bareLegacyApiStorage[1]}`;
+  }
+
   if (/^(file|content|data):/i.test(trimmed)) {
     return trimmed;
   }
@@ -35,7 +53,7 @@ const mapUserToMomentoUser = (user: User): MomentoUser => {
     id: String(user.id),
     name: user.name ?? 'Omsim Friend',
     username: user.username ?? `user${user.id}`,
-    avatarUrl: normalizeMediaUrl(user.profile?.avatar_url) ?? fallbackAvatar(user.id),
+    avatarUrl: normalizeMediaUrl(user.profile?.avatar_url) ?? '',
   };
 };
 
@@ -46,7 +64,7 @@ export const mapMemoryToMomentoUser = (memory: Memory): MomentoUser => {
     id: String(id),
     name: author?.name ?? 'Omsim Friend',
     username: author?.username ?? `user${id}`,
-    avatarUrl: normalizeMediaUrl(author?.profile?.avatar_url) ?? fallbackAvatar(id),
+    avatarUrl: normalizeMediaUrl(author?.profile?.avatar_url) ?? '',
   };
 };
 
@@ -181,7 +199,8 @@ export const dedupeMemories = (memories: Memory[]) => {
       return `memory-${memory.id}`;
     })();
     const isStory = isStoryMemory(memory);
-    const normalized = isStory && memory.scope !== 'story' ? { ...memory, scope: 'story' } : memory;
+    const normalized: Memory =
+      isStory && memory.scope !== 'story' ? { ...memory, scope: 'story' as const } : memory;
     const key = isStory ? `story-${clientKey}` : `post-${clientKey}`;
     const existing = selected.get(key);
     selected.set(key, pickPreferredMemory(existing, normalized));
