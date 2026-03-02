@@ -31,6 +31,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'block.check' => \App\Http\Middleware\EnsureNotBlocked::class,
             'active' => \App\Http\Middleware\EnsureActiveUser::class,
+            'verified.email' => \App\Http\Middleware\EnsureEmailVerifiedForActivity::class,
             'admin' => \App\Http\Middleware\AdminAuthenticated::class,
         ]);
 
