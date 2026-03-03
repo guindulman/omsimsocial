@@ -14,7 +14,7 @@ import { Feather } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { AppText } from '../../components/AppText';
@@ -31,6 +31,9 @@ import { useAuthStore } from '../../state/authStore';
 import { isStoryMemory } from '../../utils/momentoAdapter';
 import { createPostSeed } from '../../utils/postCover';
 
+const COMPOSER_MIN_HEIGHT = 120;
+const COMPOSER_MAX_HEIGHT = 220;
+
 export const CreatePostScreen = () => {
   const theme = useTheme();
   const navigation = useNavigation<any>();
@@ -39,8 +42,14 @@ export const CreatePostScreen = () => {
   const currentUser = useAuthStore((state) => state.user);
   const setAuthUser = useAuthStore((state) => state.setUser);
   const isEmailVerified = Boolean(currentUser?.email_verified || currentUser?.email_verified_at);
+  const hasVerificationField = Boolean(
+    currentUser &&
+      (typeof currentUser.email_verified === 'boolean' || currentUser.email_verified_at !== undefined)
+  );
+  const canPostByVerification = hasVerificationField ? isEmailVerified : true;
   const maxMediaItems = 10;
   const [caption, setCaption] = useState('');
+  const [composerHeight, setComposerHeight] = useState(COMPOSER_MIN_HEIGHT);
   const [mediaItems, setMediaItems] = useState<{ uri: string; type: 'image' }[]>([]);
   const [postSeed, setPostSeed] = useState(() => createPostSeed());
   const [taggedFriendIds, setTaggedFriendIds] = useState<number[]>([]);
@@ -50,6 +59,7 @@ export const CreatePostScreen = () => {
   const [mode, setMode] = useState<'post' | 'story'>('post');
   const [shareToFeed, setShareToFeed] = useState(false);
   const [showAudiencePicker, setShowAudiencePicker] = useState(false);
+  const [isRefreshingVerification, setIsRefreshingVerification] = useState(false);
   const [postNotice, setPostNotice] = useState('');
   const composerRef = useRef<TextInput | null>(null);
   const AUDIENCE_STORAGE_KEY = 'omsim:create:audiences';
@@ -192,13 +202,19 @@ export const CreatePostScreen = () => {
   useFocusEffect(
     React.useCallback(() => {
       let isActive = true;
+      setIsRefreshingVerification(true);
       api
         .me()
         .then((response) => {
           if (!isActive) return;
           setAuthUser(response.user);
         })
-        .catch(() => undefined);
+        .catch(() => undefined)
+        .finally(() => {
+          if (isActive) {
+            setIsRefreshingVerification(false);
+          }
+        });
 
       return () => {
         isActive = false;
@@ -331,6 +347,7 @@ export const CreatePostScreen = () => {
       );
       const storyMemoryIds = storySequence.map((memory) => memory.id);
       setCaption('');
+      setComposerHeight(COMPOSER_MIN_HEIGHT);
       setMediaItems([]);
       setPostSeed(createPostSeed());
       setTaggedFriendIds([]);
@@ -366,7 +383,27 @@ export const CreatePostScreen = () => {
 
   const resendVerificationMutation = useMutation({
     mutationFn: () => api.resendEmailVerification(),
-    onSuccess: () => {
+    onSuccess: (response) => {
+      if (response.code === 'email_already_verified') {
+        const nextVerifiedAt = currentUser?.email_verified_at ?? new Date().toISOString();
+        if (currentUser) {
+          setAuthUser({
+            ...currentUser,
+            email_verified: true,
+            email_verified_at: nextVerifiedAt,
+          });
+        }
+        void api
+          .me()
+          .then((meResponse) => {
+            setAuthUser(meResponse.user);
+          })
+          .catch(() => undefined);
+
+        Alert.alert('Already verified', response.message ?? 'Your email is already verified.');
+        return;
+      }
+
       Alert.alert('Verification email sent', 'Check your inbox and open the verification link.');
     },
     onError: (error) => {
@@ -494,11 +531,17 @@ export const CreatePostScreen = () => {
   const canPickFeedAudience = mode === 'post' || shareToFeed;
   const audiencesToShow = canPickFeedAudience ? feedAudiences : [];
   const contentBottomPadding = insets.bottom + theme.spacing.xxl;
+  const handleComposerSize = (height: number) => {
+    const bounded = Math.max(COMPOSER_MIN_HEIGHT, Math.min(COMPOSER_MAX_HEIGHT, height));
+    setComposerHeight(bounded);
+  };
 
   return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }} edges={['top', 'left', 'right']}>
     <KeyboardAvoidingView
       style={{ flex: 1, backgroundColor: theme.colors.background }}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
     >
       {postNotice ? (
         <View
@@ -528,10 +571,13 @@ export const CreatePostScreen = () => {
       <View style={{ flex: 1 }}>
         <ScrollView
           contentContainerStyle={{
+            flexGrow: 1,
             padding: theme.spacing.lg,
             paddingBottom: contentBottomPadding + 70,
             gap: theme.spacing.lg,
           }}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
             <View>
@@ -544,6 +590,7 @@ export const CreatePostScreen = () => {
                 accessibilityLabel="Clear draft"
                 onPress={() => {
                   setCaption('');
+                  setComposerHeight(COMPOSER_MIN_HEIGHT);
                   setMediaItems([]);
                   setPostSeed(createPostSeed());
                   setTaggedFriendIds([]);
@@ -564,7 +611,7 @@ export const CreatePostScreen = () => {
             ) : null}
           </View>
 
-          {!isEmailVerified ? (
+          {!isRefreshingVerification && hasVerificationField && !isEmailVerified ? (
             <View
               style={{
                 backgroundColor: theme.colors.surface,
@@ -646,9 +693,13 @@ export const CreatePostScreen = () => {
               onChangeText={setCaption}
               placeholder="What is on your mind?"
               placeholderTextColor={theme.colors.textSecondary}
+              onContentSizeChange={(event) => handleComposerSize(event.nativeEvent.contentSize.height)}
+              scrollEnabled={composerHeight >= COMPOSER_MAX_HEIGHT}
               style={{
                 marginTop: theme.spacing.md,
-                minHeight: 120,
+                minHeight: COMPOSER_MIN_HEIGHT,
+                maxHeight: COMPOSER_MAX_HEIGHT,
+                height: composerHeight,
                 backgroundColor: theme.colors.surfaceAlt,
                 borderRadius: theme.radii.md,
                 padding: theme.spacing.md,
@@ -933,7 +984,7 @@ export const CreatePostScreen = () => {
           <Button
             label={postButtonLabel}
             onPress={() => {
-              if (!isEmailVerified) {
+              if (!canPostByVerification) {
                 Alert.alert(
                   'Email verification required',
                   'Please verify your email before posting. Use the resend button above if needed.'
@@ -955,6 +1006,7 @@ export const CreatePostScreen = () => {
         </View>
       </View>
     </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 };
 

@@ -4,12 +4,29 @@ import Pusher from 'pusher-js/react-native';
 import { API_URL } from '../api/client';
 import { useAuthStore } from '../state/authStore';
 
-type EchoWithPusher = Echo & { connector?: { pusher?: Pusher } };
+type EchoWithPusher = Echo<any> & { connector?: { pusher?: Pusher } };
+type PusherConnectionLike = {
+  state?: string;
+  connect?: () => void;
+  bind?: (event: string, callback: (payload: any) => void) => void;
+  unbind?: (event: string, callback: (payload: any) => void) => void;
+};
 
 let echoInstance: EchoWithPusher | null = null;
 let lastToken: string | null = null;
 
-const getApiBaseUrl = () => API_URL.replace(/\/api\/v1\/?$/, '');
+const getApiBaseUrl = () => API_URL.replace(/\/api(?:\/v1)?\/?$/, '');
+
+const getBroadcastAuthEndpoint = () => {
+  const trimmed = API_URL.replace(/\/+$/, '');
+  if (/\/api\/v1$/i.test(trimmed)) {
+    return `${trimmed.replace(/\/v1$/i, '')}/broadcasting/auth`;
+  }
+  if (/\/api$/i.test(trimmed)) {
+    return `${trimmed}/broadcasting/auth`;
+  }
+  return `${getApiBaseUrl()}/api/broadcasting/auth`;
+};
 
 const getApiHost = () => {
   try {
@@ -66,8 +83,8 @@ export const getEcho = () => {
     wssPort: wsPort,
     forceTLS,
     disableStats: true,
-    enabledTransports: ['ws', 'wss'],
-    authEndpoint: `${apiBaseUrl}/broadcasting/auth`,
+    enabledTransports: ['ws', 'wss'] as ('ws' | 'wss')[],
+    authEndpoint: getBroadcastAuthEndpoint(),
     auth: {
       headers: {
         Authorization: `Bearer ${token}`,
@@ -91,4 +108,63 @@ export const disconnectEcho = () => {
     echoInstance = null;
     lastToken = null;
   }
+};
+
+const getPusherConnection = (echo: EchoWithPusher | null): PusherConnectionLike | null => {
+  if (!echo?.connector?.pusher) {
+    return null;
+  }
+
+  const pusher = echo.connector.pusher as unknown as { connection?: PusherConnectionLike };
+  return pusher.connection ?? null;
+};
+
+export const waitForEchoConnection = async (timeoutMs: number = 2500): Promise<boolean> => {
+  const echo = getEcho();
+  const connection = getPusherConnection(echo);
+  if (!echo || !connection) {
+    return false;
+  }
+
+  if (connection.state === 'connected') {
+    return true;
+  }
+
+  if (typeof connection.connect === 'function') {
+    connection.connect();
+  }
+
+  if (typeof connection.bind !== 'function' || typeof connection.unbind !== 'function') {
+    await new Promise((resolve) => setTimeout(resolve, timeoutMs));
+    return connection.state === 'connected';
+  }
+
+  return await new Promise<boolean>((resolve) => {
+    let settled = false;
+    let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+
+    const cleanup = () => {
+      connection.unbind?.('state_change', handleStateChange);
+      if (timeoutHandle) {
+        clearTimeout(timeoutHandle);
+      }
+    };
+
+    const finish = (value: boolean) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      resolve(value);
+    };
+
+    const handleStateChange = (states?: { current?: string }) => {
+      const current = states?.current ?? connection.state;
+      if (current === 'connected') {
+        finish(true);
+      }
+    };
+
+    connection.bind?.('state_change', handleStateChange);
+    timeoutHandle = setTimeout(() => finish(connection.state === 'connected'), timeoutMs);
+  });
 };
