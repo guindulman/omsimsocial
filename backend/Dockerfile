@@ -62,10 +62,12 @@ RUN apk add --no-cache nginx supervisor
 COPY --from=builder /var/www/html /var/www/html
 COPY docker/nginx/default.conf /etc/nginx/http.d/default.conf
 COPY docker/supervisor/supervisord.conf /etc/supervisord.conf
+COPY docker/entrypoint.sh /usr/local/bin/omsim-entrypoint
+RUN chmod +x /usr/local/bin/omsim-entrypoint
 
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache \
     && chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
 
 EXPOSE 80
 
-CMD ["/usr/bin/supervisord", "-c", "/etc/supervisord.conf"]
+CMD ["/usr/local/bin/omsim-entrypoint"]
