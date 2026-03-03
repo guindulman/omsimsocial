@@ -201,7 +201,8 @@ HTML;
             return response()->json([
                 'code' => 'email_already_verified',
                 'message' => 'Email is already verified.',
-            ], 409);
+                'already_verified' => true,
+            ]);
         }
 
         try {
