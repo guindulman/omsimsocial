@@ -1,9 +1,9 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { Animated, ImageBackground, Pressable, View } from 'react-native';
+import { Alert, Animated, ImageBackground, Pressable, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppText } from '../../components/AppText';
@@ -26,10 +26,12 @@ const tabs = [
 
 export const ProfileScreen = () => {
   const theme = useTheme();
-  const navigation = useNavigation();
+  const navigation = useNavigation<any>();
+  const queryClient = useQueryClient();
   const logout = useAuthStore((state) => state.logout);
   const user = useAuthStore((state) => state.user);
   const [activeTab, setActiveTab] = useState('posts');
+  const [pendingDeleteIds, setPendingDeleteIds] = useState<number[]>([]);
   const headerHeight = 170;
   const headerOverlap = 56;
   const scrollY = useRef(new Animated.Value(0)).current;
@@ -118,14 +120,23 @@ export const ProfileScreen = () => {
     });
   }, [profileFeedMemories]);
 
+  const visibleFeedEntries = useMemo(() => {
+    if (!pendingDeleteIds.length) {
+      return feedEntries;
+    }
+
+    const hidden = new Set(pendingDeleteIds);
+    return feedEntries.filter((entry) => !hidden.has(Number(entry.memoryId)));
+  }, [feedEntries, pendingDeleteIds]);
+
   const postItems = useMemo(
-    () => feedEntries.filter((entry) => entry.feedType !== 'reshare'),
-    [feedEntries]
+    () => visibleFeedEntries.filter((entry) => entry.feedType !== 'reshare'),
+    [visibleFeedEntries]
   );
 
   const reshareItems = useMemo(
-    () => feedEntries.filter((entry) => entry.feedType === 'reshare'),
-    [feedEntries]
+    () => visibleFeedEntries.filter((entry) => entry.feedType === 'reshare'),
+    [visibleFeedEntries]
   );
 
   const storyMemories = useMemo(() => {
@@ -156,20 +167,20 @@ export const ProfileScreen = () => {
     : null;
 
   const goToFriends = () => {
-    navigation.navigate('Connections' as never);
+    navigation.navigate('Connections');
   };
   const goToFollowers = () => {
     if (!user?.id) return;
     navigation.navigate(
-      'FollowList' as never,
-      { userId: user.id, type: 'followers', userName: profileName } as never
+      'FollowList',
+      { userId: user.id, type: 'followers', userName: profileName }
     );
   };
   const goToFollowing = () => {
     if (!user?.id) return;
     navigation.navigate(
-      'FollowList' as never,
-      { userId: user.id, type: 'following', userName: profileName } as never
+      'FollowList',
+      { userId: user.id, type: 'following', userName: profileName }
     );
   };
 
@@ -243,6 +254,38 @@ export const ProfileScreen = () => {
       </Pressable>
     );
   };
+
+  const deleteMemoryMutation = useMutation({
+    mutationFn: (memoryId: number) => api.deleteMemory(memoryId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['momento-feed'] });
+      queryClient.invalidateQueries({ queryKey: ['profile-feed', user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['profile-memories'] });
+      queryClient.invalidateQueries({ queryKey: ['user-profile-feed'] });
+    },
+  });
+
+  const handleDeletePost = (memoryId: number) => {
+    if (!Number.isFinite(memoryId)) return;
+
+    Alert.alert('Delete post', 'This will remove it from your profile.', [
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          setPendingDeleteIds((current) => (current.includes(memoryId) ? current : [...current, memoryId]));
+          try {
+            await deleteMemoryMutation.mutateAsync(memoryId);
+          } catch {
+            setPendingDeleteIds((current) => current.filter((id) => id !== memoryId));
+            Alert.alert('Unable to delete', 'Please try again.');
+          }
+        },
+      },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  };
+
   const feedItems =
     activeTab === 'posts'
       ? postItems
@@ -360,8 +403,8 @@ export const ProfileScreen = () => {
                   onPress={() => {
                     if (!storyMemoryIds.length || !latestStory) return;
                     navigation.navigate(
-                      'StoryViewer' as never,
-                      { memoryId: latestStory.id, memoryIds: storyMemoryIds } as never
+                      'StoryViewer',
+                      { memoryId: latestStory.id, memoryIds: storyMemoryIds }
                     );
                   }}
                   accessibilityRole={latestStory ? 'button' : undefined}
@@ -419,17 +462,17 @@ export const ProfileScreen = () => {
                   <ActionTile
                     label="Edit profile"
                     icon="edit-3"
-                    onPress={() => navigation.navigate('EditProfile' as never)}
+                    onPress={() => navigation.navigate('EditProfile')}
                   />
                   <ActionTile
                     label="Settings"
                     icon="settings"
-                    onPress={() => navigation.navigate('Settings' as never)}
+                    onPress={() => navigation.navigate('Settings')}
                   />
                   <ActionTile
                     label={`${viewCount}`}
                     icon="eye"
-                    onPress={() => navigation.navigate('ProfileViews' as never)}
+                    onPress={() => navigation.navigate('ProfileViews')}
                   />
                   <ActionTile label="Log out" icon="log-out" tone="urgent" onPress={() => logout()} />
                 </View>
@@ -517,70 +560,104 @@ export const ProfileScreen = () => {
             </View>
           </View>
         }
-        renderItem={({ item }) => (
-          <Pressable
-            style={{ flex: 1, marginBottom: theme.spacing.sm }}
-            onPress={() => {
-              if (item.imageUrl && item.mediaType) {
+        renderItem={({ item }) => {
+          const memoryId = Number(item.memoryId);
+          const canDelete =
+            activeTab === 'posts' &&
+            item.feedType !== 'reshare' &&
+            Number.isFinite(memoryId) &&
+            !pendingDeleteIds.includes(memoryId);
+
+          return (
+            <Pressable
+              style={{ flex: 1, marginBottom: theme.spacing.sm }}
+              onPress={() => {
+                if (item.imageUrl && item.mediaType) {
+                  navigation.navigate(
+                    'MediaViewer',
+                    {
+                      uri: item.imageUrl,
+                      type: item.mediaType,
+                      caption: item.caption,
+                      mediaItems: item.mediaItems?.length ? item.mediaItems : undefined,
+                      initialIndex: 0,
+                    }
+                  );
+                  return;
+                }
                 navigation.navigate(
-                  'MediaViewer' as never,
-                  {
-                    uri: item.imageUrl,
-                    type: item.mediaType,
-                    caption: item.caption,
-                    mediaItems: item.mediaItems?.length ? item.mediaItems : undefined,
-                    initialIndex: 0,
-                  } as never
+                  'PostDetail',
+                  { memoryId: Number(item.memoryId) }
                 );
-                return;
-              }
-              navigation.navigate(
-                'PostDetail' as never,
-                { memoryId: Number(item.memoryId) } as never
-              );
-            }}
-            accessibilityRole="button"
-            accessibilityLabel={item.imageUrl ? 'Open media fullscreen' : 'Open post'}
-          >
-            {item.imageUrl ? (
-              <>
-                <ImageBackground
-                  source={{ uri: item.imageUrl }}
-                  style={{ width: '100%', aspectRatio: 1 }}
-                  imageStyle={{ borderRadius: theme.radii.md }}
+              }}
+              onLongPress={canDelete ? () => handleDeletePost(memoryId) : undefined}
+              delayLongPress={300}
+              accessibilityRole="button"
+              accessibilityLabel={item.imageUrl ? 'Open media fullscreen' : 'Open post'}
+            >
+              {item.imageUrl ? (
+                <>
+                  <ImageBackground
+                    source={{ uri: item.imageUrl }}
+                    style={{ width: '100%', aspectRatio: 1 }}
+                    imageStyle={{ borderRadius: theme.radii.md }}
+                  />
+                  {item.mediaType === 'video' ? (
+                    <View
+                      style={{
+                        position: 'absolute',
+                        top: '50%',
+                        left: '50%',
+                        transform: [{ translateX: -14 }, { translateY: -14 }],
+                        width: 28,
+                        height: 28,
+                        borderRadius: 14,
+                        backgroundColor: 'rgba(0,0,0,0.55)',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      <Feather name="play" size={12} color={theme.colors.surface} />
+                    </View>
+                  ) : null}
+                </>
+              ) : (
+                <TextPostCover
+                  seed={item.coverSeed ?? item.id}
+                  text={item.caption}
+                  variant="tile"
+                  style={{ width: '100%', aspectRatio: 1, borderRadius: theme.radii.md }}
                 />
-                {item.mediaType === 'video' ? (
-                  <View
-                    style={{
-                      position: 'absolute',
-                      top: '50%',
-                      left: '50%',
-                      transform: [{ translateX: -14 }, { translateY: -14 }],
-                      width: 28,
-                      height: 28,
-                      borderRadius: 14,
-                      backgroundColor: 'rgba(0,0,0,0.55)',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    <Feather name="play" size={12} color={theme.colors.surface} />
-                  </View>
-                ) : null}
-              </>
-            ) : (
-              <TextPostCover
-                seed={item.coverSeed ?? item.id}
-                text={item.caption}
-                variant="tile"
-                style={{ width: '100%', aspectRatio: 1, borderRadius: theme.radii.md }}
-              />
-            )}
-          </Pressable>
-        )}
+              )}
+
+              {canDelete ? (
+                <Pressable
+                  onPress={() => handleDeletePost(memoryId)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Delete post"
+                  style={{
+                    position: 'absolute',
+                    top: 6,
+                    right: 6,
+                    width: 24,
+                    height: 24,
+                    borderRadius: 12,
+                    backgroundColor: 'rgba(0,0,0,0.6)',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Feather name="trash-2" size={12} color={theme.colors.surface} />
+                </Pressable>
+              ) : null}
+            </Pressable>
+          );
+        }}
       />
     </SafeAreaView>
   );
 };
+
+
 
 

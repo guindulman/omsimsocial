@@ -144,6 +144,37 @@ class AuthTest extends TestCase
             ->assertJsonStructure(['token', 'refresh_token']);
     }
 
+    public function test_forgot_password_gracefully_handles_mail_failures(): void
+    {
+        Password::shouldReceive('sendResetLink')
+            ->once()
+            ->andThrow(new \RuntimeException('smtp unavailable'));
+
+        $response = $this->postJson('/api/v1/auth/forgot-password', [
+            'email' => 'unknown@example.com',
+        ]);
+
+        $response->assertOk()
+            ->assertJsonPath('code', 'password_reset_sent');
+    }
+
+    public function test_reset_password_gracefully_handles_broker_failures(): void
+    {
+        Password::shouldReceive('reset')
+            ->once()
+            ->andThrow(new \RuntimeException('broker unavailable'));
+
+        $response = $this->postJson('/api/v1/auth/reset-password', [
+            'email' => 'reset@example.com',
+            'token' => 'token',
+            'password' => 'new-password-123',
+            'password_confirmation' => 'new-password-123',
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonPath('code', 'password_reset_failed');
+    }
+
     public function test_resend_verification_returns_success_for_already_verified_user(): void
     {
         $user = User::factory()->create([

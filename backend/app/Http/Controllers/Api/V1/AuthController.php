@@ -13,6 +13,7 @@ use App\Services\GoogleIdTokenVerifier;
 use App\Services\TurnstileVerifier;
 use Illuminate\Auth\Events\Verified;
 use Illuminate\Http\Request;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
@@ -49,22 +50,52 @@ class AuthController extends Controller
         }
 
         $payload = $request->validated();
+        try {
+            $user = DB::transaction(function () use ($payload) {
+                $user = User::query()->create([
+                    'name' => $payload['name'],
+                    'username' => $payload['username'],
+                    'email' => $payload['email'],
+                    'phone' => $payload['phone'] ?? null,
+                    'password' => Hash::make($payload['password']),
+                ]);
 
-        $user = User::query()->create([
-            'name' => $payload['name'],
-            'username' => $payload['username'],
-            'email' => $payload['email'],
-            'phone' => $payload['phone'] ?? null,
-            'password' => Hash::make($payload['password']),
-        ]);
+                Profile::query()->create([
+                    'user_id' => $user->id,
+                    'privacy_prefs' => [
+                        'show_city' => true,
+                        'allow_invites' => true,
+                    ],
+                ]);
 
-        Profile::query()->create([
-            'user_id' => $user->id,
-            'privacy_prefs' => [
-                'show_city' => true,
-                'allow_invites' => true,
-            ],
-        ]);
+                return $user;
+            });
+        } catch (QueryException $e) {
+            report($e);
+
+            $sqlState = (string) ($e->errorInfo[0] ?? '');
+            if (in_array($sqlState, ['23000', '23505'], true)) {
+                return response()->json([
+                    'code' => 'validation_failed',
+                    'message' => 'Account details are already in use.',
+                    'errors' => [
+                        'account' => ['Account details are already in use.'],
+                    ],
+                ], 422);
+            }
+
+            return response()->json([
+                'code' => 'register_failed',
+                'message' => 'Unable to register right now. Please try again.',
+            ], 500);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return response()->json([
+                'code' => 'register_failed',
+                'message' => 'Unable to register right now. Please try again.',
+            ], 500);
+        }
 
         $verificationEmailSent = false;
         try {
@@ -669,9 +700,13 @@ HTML;
         ]);
 
         // Generic response to avoid email enumeration.
-        Password::sendResetLink([
-            'email' => strtolower(trim((string) $payload['email'])),
-        ]);
+        try {
+            Password::sendResetLink([
+                'email' => strtolower(trim((string) $payload['email'])),
+            ]);
+        } catch (\Throwable $e) {
+            report($e);
+        }
 
         return response()->json([
             'code' => 'password_reset_sent',
@@ -688,23 +723,32 @@ HTML;
             'password_confirmation' => ['required', 'string', 'min:8'],
         ]);
 
-        $status = Password::reset(
-            [
-                'email' => strtolower(trim((string) $payload['email'])),
-                'password' => $payload['password'],
-                'password_confirmation' => $payload['password_confirmation'],
-                'token' => $payload['token'],
-            ],
-            function (User $user, string $password) {
-                $user->forceFill([
-                    'password' => Hash::make($password),
-                    'remember_token' => Str::random(60),
-                ])->save();
+        try {
+            $status = Password::reset(
+                [
+                    'email' => strtolower(trim((string) $payload['email'])),
+                    'password' => $payload['password'],
+                    'password_confirmation' => $payload['password_confirmation'],
+                    'token' => $payload['token'],
+                ],
+                function (User $user, string $password) {
+                    $user->forceFill([
+                        'password' => Hash::make($password),
+                        'remember_token' => Str::random(60),
+                    ])->save();
 
-                // Revoke existing API sessions on successful password reset.
-                $user->tokens()->delete();
-            }
-        );
+                    // Revoke existing API sessions on successful password reset.
+                    $user->tokens()->delete();
+                }
+            );
+        } catch (\Throwable $e) {
+            report($e);
+
+            return response()->json([
+                'code' => 'password_reset_failed',
+                'message' => 'Unable to reset password right now. Please try again.',
+            ], 422);
+        }
 
         if ($status !== Password::PASSWORD_RESET) {
             return response()->json([
