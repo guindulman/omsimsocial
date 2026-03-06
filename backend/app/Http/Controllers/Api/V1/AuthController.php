@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Services\GoogleIdTokenVerifier;
 use App\Services\TurnstileVerifier;
 use Illuminate\Auth\Events\Verified;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -23,70 +24,99 @@ class AuthController extends Controller
 {
     public function register(RegisterRequest $request, TurnstileVerifier $turnstile)
     {
-        $challengeRequired = $turnstile->isRegisterChallengeRequired($request);
-        $turnstile->trackRegisterAttempt($request);
-
-        if ($challengeRequired) {
-            $token = trim((string) $request->input('turnstile_token', ''));
-            if ($token === '') {
-                return response()->json([
-                    'code' => 'captcha_required',
-                    'message' => 'Please complete the anti-bot check.',
-                ], 422);
-            }
-
-            $result = $turnstile->verify($token, $request->ip());
-            if (! $result['success']) {
-                return response()->json([
-                    'code' => 'captcha_failed',
-                    'message' => 'Anti-bot verification failed. Please try again.',
-                    'error_codes' => $result['error_codes'],
-                ], 422);
-            }
-
-            // User solved the challenge successfully; reset adaptive counter.
-            $turnstile->clearRegisterAttempts($request);
-        }
-
-        $payload = $request->validated();
-
-        $user = User::query()->create([
-            'name' => $payload['name'],
-            'username' => $payload['username'],
-            'email' => $payload['email'],
-            'phone' => $payload['phone'] ?? null,
-            'password' => Hash::make($payload['password']),
-        ]);
-
-        Profile::query()->create([
-            'user_id' => $user->id,
-            'privacy_prefs' => [
-                'show_city' => true,
-                'allow_invites' => true,
-            ],
-        ]);
-
-        $verificationEmailSent = false;
         try {
-            $user->sendEmailVerificationNotification();
-            $verificationEmailSent = true;
+            $challengeRequired = $turnstile->isRegisterChallengeRequired($request);
+            $turnstile->trackRegisterAttempt($request);
+
+            if ($challengeRequired) {
+                $token = trim((string) $request->input('turnstile_token', ''));
+                if ($token === '') {
+                    return response()->json([
+                        'code' => 'captcha_required',
+                        'message' => 'Please complete the anti-bot check.',
+                    ], 422);
+                }
+
+                $result = $turnstile->verify($token, $request->ip());
+                if (! $result['success']) {
+                    return response()->json([
+                        'code' => 'captcha_failed',
+                        'message' => 'Anti-bot verification failed. Please try again.',
+                        'error_codes' => $result['error_codes'],
+                    ], 422);
+                }
+
+                // User solved the challenge successfully; reset adaptive counter.
+                $turnstile->clearRegisterAttempts($request);
+            }
+
+            $payload = $request->validated();
+
+            /** @var User $user */
+            $user = DB::transaction(function () use ($payload): User {
+                $createdUser = User::query()->create([
+                    'name' => $payload['name'],
+                    'username' => $payload['username'],
+                    'email' => $payload['email'],
+                    'phone' => $payload['phone'] ?? null,
+                    'password' => Hash::make($payload['password']),
+                ]);
+
+                Profile::query()->create([
+                    'user_id' => $createdUser->id,
+                    'privacy_prefs' => [
+                        'show_city' => true,
+                        'allow_invites' => true,
+                    ],
+                ]);
+
+                return $createdUser;
+            });
+
+            $verificationEmailSent = false;
+            try {
+                $user->sendEmailVerificationNotification();
+                $verificationEmailSent = true;
+            } catch (\Throwable $e) {
+                report($e);
+            }
+
+            $rememberMe = (bool) $request->boolean('remember_me', true);
+            $tokens = $this->issueAuthTokens($user, $rememberMe);
+
+            return response()->json([
+                'user' => UserResource::make($user->load('profile')),
+                ...$tokens,
+                'remember_me' => $rememberMe,
+                'email_verification' => [
+                    'required' => true,
+                    'verified' => false,
+                    'sent' => $verificationEmailSent,
+                ],
+            ], 201);
+        } catch (QueryException $e) {
+            report($e);
+            $sqlState = (string) $e->getCode();
+
+            if (in_array($sqlState, ['23000', '23505'], true)) {
+                return response()->json([
+                    'code' => 'validation_failed',
+                    'message' => 'Account details are already in use.',
+                ], 422);
+            }
+
+            return response()->json([
+                'code' => 'register_failed',
+                'message' => 'Unable to create account right now.',
+            ], 500);
         } catch (\Throwable $e) {
             report($e);
+
+            return response()->json([
+                'code' => 'register_failed',
+                'message' => 'Unable to create account right now.',
+            ], 500);
         }
-
-        $rememberMe = (bool) $request->boolean('remember_me', true);
-        $tokens = $this->issueAuthTokens($user, $rememberMe);
-
-        return response()->json([
-            'user' => UserResource::make($user->load('profile')),
-            ...$tokens,
-            'remember_me' => $rememberMe,
-            'email_verification' => [
-                'required' => true,
-                'verified' => false,
-                'sent' => $verificationEmailSent,
-            ],
-        ], 201);
     }
 
     public function antiBot(Request $request, TurnstileVerifier $turnstile)
@@ -668,9 +698,13 @@ HTML;
         ]);
 
         // Generic response to avoid email enumeration.
-        Password::sendResetLink([
-            'email' => strtolower(trim((string) $payload['email'])),
-        ]);
+        try {
+            Password::sendResetLink([
+                'email' => strtolower(trim((string) $payload['email'])),
+            ]);
+        } catch (\Throwable $e) {
+            report($e);
+        }
 
         return response()->json([
             'code' => 'password_reset_sent',
@@ -687,23 +721,32 @@ HTML;
             'password_confirmation' => ['required', 'string', 'min:8'],
         ]);
 
-        $status = Password::reset(
-            [
-                'email' => strtolower(trim((string) $payload['email'])),
-                'password' => $payload['password'],
-                'password_confirmation' => $payload['password_confirmation'],
-                'token' => $payload['token'],
-            ],
-            function (User $user, string $password) {
-                $user->forceFill([
-                    'password' => Hash::make($password),
-                    'remember_token' => Str::random(60),
-                ])->save();
+        try {
+            $status = Password::reset(
+                [
+                    'email' => strtolower(trim((string) $payload['email'])),
+                    'password' => $payload['password'],
+                    'password_confirmation' => $payload['password_confirmation'],
+                    'token' => $payload['token'],
+                ],
+                function (User $user, string $password) {
+                    $user->forceFill([
+                        'password' => Hash::make($password),
+                        'remember_token' => Str::random(60),
+                    ])->save();
 
-                // Revoke existing API sessions on successful password reset.
-                $user->tokens()->delete();
-            }
-        );
+                    // Revoke existing API sessions on successful password reset.
+                    $user->tokens()->delete();
+                }
+            );
+        } catch (\Throwable $e) {
+            report($e);
+
+            return response()->json([
+                'code' => 'password_reset_failed',
+                'message' => 'Unable to reset password right now.',
+            ], 422);
+        }
 
         if ($status !== Password::PASSWORD_RESET) {
             return response()->json([

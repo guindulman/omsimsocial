@@ -21,7 +21,7 @@ class RegisterRequest extends FormRequest
         return [
             'name' => ['required', 'string', 'max:255'],
             'username' => ['required', 'string', 'max:255', 'unique:users,username'],
-            'email' => ['nullable', 'email', 'max:255', 'unique:users,email'],
+            'email' => ['required', 'email', 'max:255', 'unique:users,email'],
             'phone' => ['nullable', 'string', 'max:32', 'unique:users,phone'],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
             // Captcha token (verified in controller when enabled).
