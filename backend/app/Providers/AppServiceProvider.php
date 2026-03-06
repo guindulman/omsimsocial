@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
@@ -125,6 +126,14 @@ class AppServiceProvider extends ServiceProvider
             $key = $request->user()?->id ?: $request->ip();
 
             return Limit::perMinute(10)->by($key);
+        });
+
+        ResetPassword::createUrlUsing(function (object $user, string $token) {
+            $scheme = trim((string) config('app.mobile_scheme', 'omsimsocial'));
+            $encodedToken = urlencode($token);
+            $encodedEmail = urlencode((string) $user->getEmailForPasswordReset());
+
+            return "{$scheme}://reset-password?token={$encodedToken}&email={$encodedEmail}";
         });
     }
 }
