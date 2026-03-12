@@ -63,6 +63,11 @@ COPY --from=builder /var/www/html /var/www/html
 COPY docker/nginx/default.conf /etc/nginx/http.d/default.conf
 COPY docker/supervisor/supervisord.conf /etc/supervisord.conf
 
+RUN mkdir -p /var/www/html/storage/app/public \
+    && rm -f /var/www/html/public/storage \
+    && ln -s /var/www/html/storage/app/public /var/www/html/public/storage \
+    && chown -h www-data:www-data /var/www/html/public/storage
+
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache \
     && chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
 
