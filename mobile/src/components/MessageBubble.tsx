@@ -4,6 +4,7 @@ import { Video, ResizeMode } from 'expo-av';
 
 import { useTheme } from '../theme/useTheme';
 import { AppText } from './AppText';
+import { MediaPlaceholder } from './MediaPlaceholder';
 
 type MessageBubbleProps = {
   text: string;
@@ -23,6 +24,7 @@ export const MessageBubble = ({
   onLongPress,
 }: MessageBubbleProps) => {
   const theme = useTheme();
+  const [mediaFailed, setMediaFailed] = React.useState(false);
   const hasLongPress = Boolean(onLongPress);
   const hasMediaAction = Boolean(onPressMedia || onLongPress);
   const Container = hasLongPress ? Pressable : View;
@@ -38,6 +40,10 @@ export const MessageBubble = ({
         accessibilityLabel: 'Open media',
       }
     : {};
+
+  React.useEffect(() => {
+    setMediaFailed(false);
+  }, [mediaType, mediaUrl]);
 
   return (
     <Container
@@ -57,21 +63,31 @@ export const MessageBubble = ({
       {mediaUrl ? (
         mediaType === 'video' ? (
           <MediaWrapper {...mediaProps}>
-            <Video
-              source={{ uri: mediaUrl }}
-              style={{ width: 220, height: 220, borderRadius: theme.radii.md }}
-              resizeMode={ResizeMode.COVER}
-              shouldPlay={false}
-              isMuted
-            />
+            {mediaFailed ? (
+              <MediaPlaceholder type="video" style={{ width: 220, height: 220, borderRadius: theme.radii.md }} />
+            ) : (
+              <Video
+                source={{ uri: mediaUrl }}
+                style={{ width: 220, height: 220, borderRadius: theme.radii.md }}
+                resizeMode={ResizeMode.COVER}
+                shouldPlay={false}
+                isMuted
+                onError={() => setMediaFailed(true)}
+              />
+            )}
           </MediaWrapper>
         ) : (
           <MediaWrapper {...mediaProps}>
-            <Image
-              source={{ uri: mediaUrl }}
-              style={{ width: 220, height: 220, borderRadius: theme.radii.md }}
-              resizeMode="cover"
-            />
+            {mediaFailed ? (
+              <MediaPlaceholder type="image" style={{ width: 220, height: 220, borderRadius: theme.radii.md }} />
+            ) : (
+              <Image
+                source={{ uri: mediaUrl }}
+                style={{ width: 220, height: 220, borderRadius: theme.radii.md }}
+                resizeMode="cover"
+                onError={() => setMediaFailed(true)}
+              />
+            )}
           </MediaWrapper>
         )
       ) : null}

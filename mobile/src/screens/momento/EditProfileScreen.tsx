@@ -44,6 +44,7 @@ export const EditProfileScreen = () => {
   const [tiktokUrl, setTiktokUrl] = useState(user?.profile?.tiktok_url ?? '');
   const [avatarPreview, setAvatarPreview] = useState(user?.profile?.avatar_url ?? '');
   const [coverPreview, setCoverPreview] = useState(user?.profile?.cover_url ?? '');
+  const [coverPreviewFailed, setCoverPreviewFailed] = useState(false);
   const [mediaError, setMediaError] = useState('');
   const [saveNotice, setSaveNotice] = useState('');
   const avatarPreviewUrl = normalizeMediaUrl(avatarPreview) ?? avatarPreview;
@@ -66,6 +67,10 @@ export const EditProfileScreen = () => {
     setAvatarPreview(user.profile?.avatar_url ?? '');
     setCoverPreview(user.profile?.cover_url ?? '');
   }, [user]);
+
+  useEffect(() => {
+    setCoverPreviewFailed(false);
+  }, [coverPreviewUrl]);
 
   const profileMutation = useMutation({
     mutationFn: () =>
@@ -286,8 +291,12 @@ export const EditProfileScreen = () => {
                 overflow: 'hidden',
               }}
             >
-              {coverPreviewUrl ? (
-                <Image source={{ uri: coverPreviewUrl }} style={{ width: '100%', height: 140 }} />
+              {coverPreviewUrl && !coverPreviewFailed ? (
+                <Image
+                  source={{ uri: coverPreviewUrl }}
+                  style={{ width: '100%', height: 140 }}
+                  onError={() => setCoverPreviewFailed(true)}
+                />
               ) : (
                 <View
                   style={{

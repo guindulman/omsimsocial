@@ -33,6 +33,7 @@ export const Avatar = ({
 }: AvatarProps) => {
   const theme = useTheme();
   const initials = getInitials(name);
+  const [imageFailed, setImageFailed] = React.useState(false);
   const normalizedSource = (() => {
     if (!imageSource) {
       return undefined;
@@ -55,6 +56,9 @@ export const Avatar = ({
     }
     return imageSource;
   })();
+  React.useEffect(() => {
+    setImageFailed(false);
+  }, [normalizedSource]);
   const sharedStyle: ViewStyle = {
     width: size,
     height: size,
@@ -66,9 +70,14 @@ export const Avatar = ({
     overflow: 'hidden',
   };
 
-  const avatarBody = normalizedSource ? (
+  const avatarBody = normalizedSource && !imageFailed ? (
     <View style={[sharedStyle, style]}>
-      <Image source={normalizedSource} style={{ width: size, height: size }} resizeMode="cover" />
+      <Image
+        source={normalizedSource}
+        style={{ width: size, height: size }}
+        resizeMode="cover"
+        onError={() => setImageFailed(true)}
+      />
     </View>
   ) : variant === 'solid' ? (
     <View style={[sharedStyle, { backgroundColor: theme.colors.surfaceAlt }, style]}>

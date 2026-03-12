@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Support\MediaUrl;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -47,7 +48,7 @@ class MessageResource extends JsonResource
             'conversation_id' => $this->conversation_id,
             'body' => $e2ee ? null : $this->body,
             'e2ee' => $e2ee,
-            'media_url' => $this->media_url,
+            'media_url' => MediaUrl::normalize($this->media_url, $request),
             'media_type' => $this->media_type,
             'delivered_at' => $this->delivered_at,
             'read_at' => $this->read_at,

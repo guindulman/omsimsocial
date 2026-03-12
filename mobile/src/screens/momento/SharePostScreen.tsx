@@ -44,6 +44,7 @@ export const SharePostScreen = () => {
   const { post } = route.params as SharePostParams;
   const [searchQuery, setSearchQuery] = useState('');
   const [pendingRecipientId, setPendingRecipientId] = useState<number | null>(null);
+  const [previewImageFailed, setPreviewImageFailed] = useState(false);
 
   const friendsQuery = useQuery({
     queryKey: ['friends', 'share'],
@@ -131,6 +132,10 @@ export const SharePostScreen = () => {
   const previewMediaUri = normalizeMediaUrl(post.mediaUri) ?? null;
   const isVideo = post.mediaType === 'video';
 
+  React.useEffect(() => {
+    setPreviewImageFailed(false);
+  }, [previewMediaUri]);
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }}>
       <BackButton />
@@ -145,7 +150,7 @@ export const SharePostScreen = () => {
 
             <Card style={{ marginTop: theme.spacing.lg }}>
               <View style={{ flexDirection: 'row', gap: theme.spacing.md }}>
-                {previewMediaUri ? (
+                {previewMediaUri && !previewImageFailed ? (
                   <View>
                     <Image
                       source={{ uri: previewMediaUri }}
@@ -155,6 +160,7 @@ export const SharePostScreen = () => {
                         borderRadius: theme.radii.md,
                         backgroundColor: theme.colors.surfaceAlt,
                       }}
+                      onError={() => setPreviewImageFailed(true)}
                     />
                     {isVideo ? (
                       <View
@@ -173,6 +179,22 @@ export const SharePostScreen = () => {
                         <Feather name="play" size={10} color="#fff" />
                       </View>
                     ) : null}
+                  </View>
+                ) : previewMediaUri ? (
+                  <View
+                    style={{
+                      width: 72,
+                      height: 72,
+                      borderRadius: theme.radii.md,
+                      backgroundColor: theme.colors.surfaceAlt,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      padding: theme.spacing.sm,
+                    }}
+                  >
+                    <AppText variant="caption" tone="secondary" style={{ textAlign: 'center' }}>
+                      Preview unavailable
+                    </AppText>
                   </View>
                 ) : null}
                 <View style={{ flex: 1, gap: theme.spacing.xs }}>

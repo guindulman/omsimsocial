@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Support\MediaUrl;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -17,7 +18,7 @@ class BackstageMessageResource extends JsonResource
             'thread_id' => $this->thread_id,
             'user_id' => $this->user_id,
             'message' => $this->message,
-            'media_url' => $this->media_url,
+            'media_url' => MediaUrl::normalize($this->media_url, $request),
             'created_at' => $this->created_at,
             'user' => UserResource::make($this->whenLoaded('user')),
         ];

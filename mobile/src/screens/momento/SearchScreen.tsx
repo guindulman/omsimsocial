@@ -47,6 +47,7 @@ export const SearchScreen = () => {
   const [query, setQuery] = useState('');
   const [activeTab, setActiveTab] = useState<SearchTab>('top');
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
+  const [failedTileImageIds, setFailedTileImageIds] = useState<Record<string, true>>({});
   const trimmedQuery = query.trim();
   const debouncedQuery = useDebouncedValue(trimmedQuery, 360);
   const showSearchResults = debouncedQuery.length >= 1;
@@ -56,6 +57,14 @@ export const SearchScreen = () => {
   useEffect(() => {
     loadRecentSearches().then(setRecentSearches);
   }, []);
+
+  useEffect(() => {
+    setFailedTileImageIds({});
+  }, [debouncedQuery, activeTab]);
+
+  const markTileImageFailed = (id: string) => {
+    setFailedTileImageIds((current) => (current[id] ? current : { ...current, [id]: true }));
+  };
 
   const followingQuery = useQuery({
     queryKey: ['following', currentUserId],
@@ -508,7 +517,7 @@ export const SearchScreen = () => {
                 marginBottom: theme.spacing.sm,
               }}
             >
-              {item.media?.uri ? (
+              {item.media?.uri && !failedTileImageIds[item.id] ? (
                 <Image
                   source={{ uri: item.media.uri }}
                   style={{
@@ -516,6 +525,7 @@ export const SearchScreen = () => {
                     aspectRatio: 1,
                     borderRadius: theme.radii.md,
                   }}
+                  onError={() => markTileImageFailed(item.id)}
                 />
               ) : (
                 <TextPostCover
@@ -601,7 +611,7 @@ export const SearchScreen = () => {
               accessibilityLabel="Open post"
               style={{ flex: 1, marginBottom: theme.spacing.sm }}
             >
-              {item.media?.uri ? (
+              {item.media?.uri && !failedTileImageIds[item.id] ? (
                 <Image
                   source={{ uri: item.media.uri }}
                   style={{
@@ -609,6 +619,7 @@ export const SearchScreen = () => {
                     aspectRatio: 1,
                     borderRadius: theme.radii.md,
                   }}
+                  onError={() => markTileImageFailed(item.id)}
                 />
               ) : (
                 <TextPostCover
@@ -669,7 +680,7 @@ export const SearchScreen = () => {
             accessibilityLabel="Open post"
             style={{ flex: 1, marginBottom: theme.spacing.sm }}
           >
-            {item.media?.uri ? (
+            {item.media?.uri && !failedTileImageIds[item.id] ? (
               <Image
                 source={{ uri: item.media.uri }}
                 style={{
@@ -677,6 +688,7 @@ export const SearchScreen = () => {
                   aspectRatio: 1,
                   borderRadius: theme.radii.md,
                 }}
+                onError={() => markTileImageFailed(item.id)}
               />
             ) : (
               <TextPostCover
