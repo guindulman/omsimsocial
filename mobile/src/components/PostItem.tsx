@@ -8,6 +8,7 @@ import { useTheme } from '../theme/useTheme';
 import { AppText } from './AppText';
 import { Avatar } from './Avatar';
 import { Card } from './Card';
+import { MediaPlaceholder } from './MediaPlaceholder';
 import { TextPostCover } from './TextPostCover';
 import { firstName } from '../utils/name';
 
@@ -56,6 +57,7 @@ export const PostItem = ({
   const [mediaIndex, setMediaIndex] = React.useState(0);
   const [isCaptionExpanded, setIsCaptionExpanded] = React.useState(false);
   const [isReshareExpanded, setIsReshareExpanded] = React.useState(false);
+  const [failedMediaIds, setFailedMediaIds] = React.useState<Record<string, true>>({});
   const actionHitSlop = { top: 8, bottom: 8, left: 8, right: 8 };
   const canLike = Boolean(onLike);
   const canComment = Boolean(onComment);
@@ -117,7 +119,12 @@ export const PostItem = ({
     setMediaIndex(0);
     setIsCaptionExpanded(false);
     setIsReshareExpanded(false);
+    setFailedMediaIds({});
   }, [post.id, mediaItems.length]);
+
+  const markMediaFailed = React.useCallback((id: string) => {
+    setFailedMediaIds((current) => (current[id] ? current : { ...current, [id]: true }));
+  }, []);
 
   return (
     <Card style={{ marginBottom: theme.spacing.lg, padding: theme.spacing.lg }}>
@@ -255,47 +262,62 @@ export const PostItem = ({
                 style={{ width: slideWidth || '100%', height: 260 }}
               >
                 {item.type === 'video' ? (
-                  <View>
-                    <Video
-                      source={{ uri: item.uri }}
-                      style={{ width: '100%', height: 260 }}
-                      resizeMode={ResizeMode.COVER}
-                      shouldPlay={false}
-                      isMuted
-                    />
-                    <View
-                      style={{
-                        position: 'absolute',
-                        top: 0,
-                        bottom: 0,
-                        left: 0,
-                        right: 0,
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        backgroundColor: 'rgba(0,0,0,0.15)',
-                      }}
-                    >
+                  failedMediaIds[item.id] ? (
+                    <MediaPlaceholder type="video" style={{ width: '100%', height: 260, borderRadius: 0 }} />
+                  ) : (
+                    <View>
+                      <Video
+                        source={{ uri: item.uri }}
+                        style={{ width: '100%', height: 260 }}
+                        resizeMode={ResizeMode.COVER}
+                        shouldPlay={false}
+                        isMuted
+                        onError={() => markMediaFailed(item.id)}
+                      />
                       <View
                         style={{
-                          width: 48,
-                          height: 48,
-                          borderRadius: 24,
-                          backgroundColor: 'rgba(0,0,0,0.45)',
+                          position: 'absolute',
+                          top: 0,
+                          bottom: 0,
+                          left: 0,
+                          right: 0,
                           alignItems: 'center',
                           justifyContent: 'center',
+                          backgroundColor: 'rgba(0,0,0,0.15)',
                         }}
                       >
-                        <Feather name="play" size={18} color={theme.colors.surface} />
+                        <View
+                          style={{
+                            width: 48,
+                            height: 48,
+                            borderRadius: 24,
+                            backgroundColor: 'rgba(0,0,0,0.45)',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}
+                        >
+                          <Feather name="play" size={18} color={theme.colors.surface} />
+                        </View>
                       </View>
                     </View>
-                  </View>
+                  )
                 ) : (
-                  <Image
-                    source={{ uri: item.uri }}
-                    style={{ width: '100%', height: 260 }}
-                    resizeMode="cover"
-                    accessibilityLabel="Post media"
-                  />
+                  failedMediaIds[item.id] ? (
+                    <TextPostCover
+                      seed={`${post.coverSeed ?? post.feedKey ?? post.id}-${index}`}
+                      text={trimmedCaption}
+                      variant="post"
+                      style={{ height: 260 }}
+                    />
+                  ) : (
+                    <Image
+                      source={{ uri: item.uri }}
+                      style={{ width: '100%', height: 260 }}
+                      resizeMode="cover"
+                      accessibilityLabel="Post media"
+                      onError={() => markMediaFailed(item.id)}
+                    />
+                  )
                 )}
               </Pressable>
             ))}

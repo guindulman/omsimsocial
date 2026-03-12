@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Support\MediaUrl;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -15,8 +16,8 @@ class PostMediaResource extends JsonResource
         return [
             'id' => $this->id,
             'type' => $this->type,
-            'url' => $this->url,
-            'thumb_url' => $this->thumb_url,
+            'url' => MediaUrl::normalize($this->url, $request),
+            'thumb_url' => MediaUrl::normalize($this->thumb_url, $request),
             'duration_ms' => $this->duration_ms,
             'order_index' => $this->order_index,
         ];

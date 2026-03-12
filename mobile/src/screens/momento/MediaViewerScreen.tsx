@@ -37,6 +37,7 @@ export const MediaViewerScreen = () => {
   const listRef = useRef<FlatList<{ id: string; uri: string; type: 'image' | 'video' }> | null>(null);
   const [isCaptionExpanded, setIsCaptionExpanded] = useState(false);
   const [isZoomed, setIsZoomed] = useState(false);
+  const [failedImageIds, setFailedImageIds] = useState<Record<string, true>>({});
   const windowWidth = Dimensions.get('window').width;
   const windowHeight = Dimensions.get('window').height;
   const insets = useSafeAreaInsets();
@@ -48,9 +49,11 @@ export const MediaViewerScreen = () => {
   const ZoomableImage = ({
     source,
     onZoomChange,
+    onLoadError,
   }: {
     source: string;
     onZoomChange: (zoomed: boolean) => void;
+    onLoadError?: () => void;
   }) => {
     const MIN_SCALE = 1;
     const MAX_SCALE = 4;
@@ -253,6 +256,7 @@ export const MediaViewerScreen = () => {
                       transform: [{ translateX }, { translateY }, { scale }],
                     }}
                     resizeMode="contain"
+                    onError={onLoadError}
                   />
                 </Animated.View>
               </PinchGestureHandler>
@@ -280,6 +284,10 @@ export const MediaViewerScreen = () => {
     }
     return [];
   }, [mediaItems, type, uri]);
+
+  useEffect(() => {
+    setFailedImageIds({});
+  }, [items.map((item) => `${item.id}:${item.uri}`).join('|')]);
 
   const startIndex = Math.min(
     Math.max(initialIndex ?? 0, 0),
@@ -319,7 +327,21 @@ export const MediaViewerScreen = () => {
                     useNativeControls
                   />
                 ) : (
-                  <ZoomableImage source={item.uri} onZoomChange={setIsZoomed} />
+                  failedImageIds[item.id] ? (
+                    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+                      <AppText style={{ color: theme.colors.surface }}>Unable to load image.</AppText>
+                    </View>
+                  ) : (
+                    <ZoomableImage
+                      source={item.uri}
+                      onZoomChange={setIsZoomed}
+                      onLoadError={() =>
+                        setFailedImageIds((current) =>
+                          current[item.id] ? current : { ...current, [item.id]: true }
+                        )
+                      }
+                    />
+                  )
                 )}
               </View>
             )}

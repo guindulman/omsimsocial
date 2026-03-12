@@ -9,6 +9,7 @@ use App\Models\MemoryComment;
 use App\Models\MemoryCommentLike;
 use App\Http\Resources\UserResource;
 use App\Models\InboxEvent;
+use App\Support\MediaUrl;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -92,7 +93,7 @@ class MemoryCommentController extends Controller
                     'actor_id' => $actor->id,
                     'actor_name' => $actor->name,
                     'actor_username' => $actor->username,
-                    'actor_avatar_url' => $actor->profile?->avatar_url,
+                    'actor_avatar_url' => MediaUrl::normalize($actor->profile?->avatar_url, $request),
                 ],
             ]);
         }
@@ -110,7 +111,7 @@ class MemoryCommentController extends Controller
                     'actor_id' => $actor->id,
                     'actor_name' => $actor->name,
                     'actor_username' => $actor->username,
-                    'actor_avatar_url' => $actor->profile?->avatar_url,
+                    'actor_avatar_url' => MediaUrl::normalize($actor->profile?->avatar_url, $request),
                 ],
             ]);
         }
@@ -189,7 +190,7 @@ class MemoryCommentController extends Controller
                 'actor_id' => $actor->id,
                 'actor_name' => $actor->name,
                 'actor_username' => $actor->username,
-                'actor_avatar_url' => $actor->profile?->avatar_url,
+                'actor_avatar_url' => MediaUrl::normalize($actor->profile?->avatar_url, $request),
             ];
 
             if ($comment->user_id !== $request->user()->id) {

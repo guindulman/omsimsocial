@@ -30,6 +30,8 @@ export const ProfileScreen = () => {
   const logout = useAuthStore((state) => state.logout);
   const user = useAuthStore((state) => state.user);
   const [activeTab, setActiveTab] = useState('posts');
+  const [coverImageFailed, setCoverImageFailed] = useState(false);
+  const [failedFeedImages, setFailedFeedImages] = useState<Record<string, true>>({});
   const headerHeight = 170;
   const headerOverlap = 56;
   const scrollY = useRef(new Animated.Value(0)).current;
@@ -272,6 +274,19 @@ export const ProfileScreen = () => {
       </Card>
     </View>
   );
+
+  React.useEffect(() => {
+    setCoverImageFailed(false);
+  }, [coverUrl]);
+
+  React.useEffect(() => {
+    setFailedFeedImages({});
+  }, [feedItems.map((item) => `${item.id}:${item.imageUrl ?? ''}`).join('|')]);
+
+  const markFeedImageFailed = React.useCallback((id: string) => {
+    setFailedFeedImages((current) => (current[id] ? current : { ...current, [id]: true }));
+  }, []);
+
   return (
     <SafeAreaView
       style={{ flex: 1, backgroundColor: theme.colors.background }}
@@ -287,10 +302,11 @@ export const ProfileScreen = () => {
           transform: [{ translateY: headerTranslateY }, { scale: headerScale }],
         }}
       >
-        {coverUrl ? (
+        {coverUrl && !coverImageFailed ? (
           <ImageBackground
             source={{ uri: coverUrl }}
             style={{ height: '100%', justifyContent: 'flex-end' }}
+            onError={() => setCoverImageFailed(true)}
           >
             <View
               style={{
@@ -542,12 +558,13 @@ export const ProfileScreen = () => {
             accessibilityRole="button"
             accessibilityLabel={item.imageUrl ? 'Open media fullscreen' : 'Open post'}
           >
-            {item.imageUrl ? (
+            {item.imageUrl && !failedFeedImages[String(item.id)] ? (
               <>
                 <ImageBackground
                   source={{ uri: item.imageUrl }}
                   style={{ width: '100%', aspectRatio: 1 }}
                   imageStyle={{ borderRadius: theme.radii.md }}
+                  onError={() => markFeedImageFailed(String(item.id))}
                 />
                 {item.mediaType === 'video' ? (
                   <View

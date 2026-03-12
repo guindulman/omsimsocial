@@ -49,6 +49,8 @@ export const UserProfileScreen = () => {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState('posts');
   const [isBioExpanded, setIsBioExpanded] = useState(false);
+  const [coverImageFailed, setCoverImageFailed] = useState(false);
+  const [failedFeedImages, setFailedFeedImages] = useState<Record<string, true>>({});
   const isSelf = Boolean(currentUserId && targetUserId === currentUserId);
   const recordedProfileViewsRef = useRef<Set<number>>(new Set());
   const headerHeight = 170;
@@ -184,6 +186,14 @@ export const UserProfileScreen = () => {
   }, [targetUserId, bio]);
 
   useEffect(() => {
+    setCoverImageFailed(false);
+  }, [coverUrl]);
+
+  const markFeedImageFailed = React.useCallback((id: string) => {
+    setFailedFeedImages((current) => (current[id] ? current : { ...current, [id]: true }));
+  }, []);
+
+  useEffect(() => {
     if (!targetUserId || isSelf) {
       return;
     }
@@ -232,6 +242,10 @@ export const UserProfileScreen = () => {
     () => feedEntries.filter((entry) => entry.feedType === 'reshare'),
     [feedEntries]
   );
+
+  useEffect(() => {
+    setFailedFeedImages({});
+  }, [feedEntries.map((entry) => `${entry.id}:${entry.imageUrl ?? ''}`).join('|')]);
 
   const storyMemories = useMemo(() => {
     const now = Date.now();
@@ -539,10 +553,11 @@ export const UserProfileScreen = () => {
           transform: [{ translateY: headerTranslateY }, { scale: headerScale }],
         }}
       >
-        {coverUrl ? (
+        {coverUrl && !coverImageFailed ? (
           <ImageBackground
             source={{ uri: coverUrl }}
             style={{ height: '100%', justifyContent: 'flex-end' }}
+            onError={() => setCoverImageFailed(true)}
           >
             <View
               style={{
@@ -957,12 +972,13 @@ export const UserProfileScreen = () => {
             accessibilityRole="button"
             accessibilityLabel={item.imageUrl ? 'Open media fullscreen' : 'Open post'}
           >
-            {item.imageUrl ? (
+            {item.imageUrl && !failedFeedImages[String(item.id)] ? (
               <>
                 <ImageBackground
                   source={{ uri: item.imageUrl }}
                   style={{ width: '100%', aspectRatio: 1 }}
                   imageStyle={{ borderRadius: theme.radii.md }}
+                  onError={() => markFeedImageFailed(String(item.id))}
                 />
                 {item.mediaType === 'video' ? (
                   <View

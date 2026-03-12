@@ -41,7 +41,7 @@ const STORY_DURATION_MS = 10000;
 
 export const StoryViewerScreen = () => {
   const theme = useTheme();
-  const navigation = useNavigation();
+  const navigation = useNavigation<any>();
   const route = useRoute();
   const { memoryId, memoryIds } = route.params as StoryViewerParams;
   const currentUser = useAuthStore((state) => state.user);
@@ -55,6 +55,7 @@ export const StoryViewerScreen = () => {
   const [showViewers, setShowViewers] = useState(false);
   const [likedById, setLikedById] = useState<Record<number, boolean>>({});
   const [likeCountsById, setLikeCountsById] = useState<Record<number, number>>({});
+  const [failedSlideIds, setFailedSlideIds] = useState<Record<string, true>>({});
   const viewedMemoryIds = useRef(new Set<number>());
   const queryClient = useQueryClient();
 
@@ -119,26 +120,31 @@ export const StoryViewerScreen = () => {
 
   const storySlides = useMemo<StorySlide[]>(() => {
     if (!activeMemories.length) return [];
-    return activeMemories.flatMap((memory) => {
+    const slides: StorySlide[] = [];
+    activeMemories.forEach((memory) => {
       const mediaItems = memory.media ?? [];
       if (!mediaItems.length) {
-        return [
-          {
-            id: `story-${memory.id}-text`,
-            memory,
-            type: 'text' as const,
-          },
-        ];
+        slides.push({
+          id: `story-${memory.id}-text`,
+          memory,
+          type: 'text',
+        });
+        return;
       }
-      return mediaItems
-        .map((item, index) => ({
+      mediaItems.forEach((item, index) => {
+        const uri = normalizeMediaUrl(item.url);
+        if (!uri) {
+          return;
+        }
+        slides.push({
           id: String(item.id ?? `story-${memory.id}-${index}`),
           memory,
           type: item.type === 'video' ? 'video' : 'image',
-          uri: normalizeMediaUrl(item.url) ?? '',
-        }))
-        .filter((item) => item.type === 'text' || item.uri);
+          uri,
+        });
+      });
     });
+    return slides;
   }, [activeMemories]);
 
   const activeSlide = storySlides[activeIndex];
@@ -164,6 +170,7 @@ export const StoryViewerScreen = () => {
   useEffect(() => {
     setActiveIndex(0);
     listRef.current?.scrollToOffset({ offset: 0, animated: false });
+    setFailedSlideIds({});
   }, [sourceMemoryIds.join('|'), storySlides.length]);
 
   useEffect(() => {
@@ -375,11 +382,16 @@ export const StoryViewerScreen = () => {
                       }
                     }}
                   />
-                ) : item.type === 'image' && item.uri ? (
+                ) : item.type === 'image' && item.uri && !failedSlideIds[item.id] ? (
                   <Image
                     source={{ uri: item.uri }}
                     style={{ width: '100%', height: '100%' }}
                     resizeMode="contain"
+                    onError={() =>
+                      setFailedSlideIds((current) =>
+                        current[item.id] ? current : { ...current, [item.id]: true }
+                      )
+                    }
                   />
                 ) : (
                   <View

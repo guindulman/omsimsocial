@@ -8,6 +8,7 @@ use App\Http\Requests\CreateMemoryRequest;
 use App\Http\Requests\ReactMemoryRequest;
 use App\Http\Requests\UploadMemoryMediaRequest;
 use App\Http\Resources\AdoptionResource;
+use App\Http\Resources\MemoryMediaResource;
 use App\Http\Resources\MemoryResource;
 use App\Http\Resources\UserResource;
 use App\Models\Adoption;
@@ -32,6 +33,7 @@ use Illuminate\Http\Request;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use App\Support\MediaUrl;
 
 class MemoryController extends Controller
 {
@@ -486,7 +488,7 @@ class MemoryController extends Controller
         ]);
 
         return response()->json([
-            'media' => $media,
+            'media' => new MemoryMediaResource($media),
         ], 201);
     }
 
@@ -539,7 +541,7 @@ class MemoryController extends Controller
                     'actor_id' => $actor->id,
                     'actor_name' => $actor->name,
                     'actor_username' => $actor->username,
-                    'actor_avatar_url' => $actor->profile?->avatar_url,
+                    'actor_avatar_url' => MediaUrl::normalize($actor->profile?->avatar_url, $request),
                 ],
             ]);
         }
@@ -621,7 +623,7 @@ class MemoryController extends Controller
                 'actor_id' => $actor->id,
                 'actor_name' => $actor->name,
                 'actor_username' => $actor->username,
-                'actor_avatar_url' => $actor->profile?->avatar_url,
+                'actor_avatar_url' => MediaUrl::normalize($actor->profile?->avatar_url, $request),
             ];
 
             if ($adoption->note) {
@@ -725,7 +727,7 @@ class MemoryController extends Controller
                     'actor_id' => $actor->id,
                     'actor_name' => $actor->name,
                     'actor_username' => $actor->username,
-                    'actor_avatar_url' => $actor->profile?->avatar_url,
+                    'actor_avatar_url' => MediaUrl::normalize($actor->profile?->avatar_url, $request),
                 ],
             ]);
         }
