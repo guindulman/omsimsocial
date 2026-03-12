@@ -37,8 +37,17 @@ export const CreatePostScreen = () => {
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
   const currentUser = useAuthStore((state) => state.user);
+  const authToken = useAuthStore((state) => state.token);
   const setAuthUser = useAuthStore((state) => state.setUser);
-  const isEmailVerified = Boolean(currentUser?.email_verified || currentUser?.email_verified_at);
+  const isEmailVerified = Boolean(currentUser?.email_verified === true || currentUser?.email_verified_at);
+  const emailVerificationKnown = Boolean(
+    currentUser &&
+      (typeof currentUser.email_verified === 'boolean' ||
+        (Object.prototype.hasOwnProperty.call(currentUser, 'email_verified_at') &&
+          currentUser.email_verified_at !== null))
+  );
+  const [verificationSyncComplete, setVerificationSyncComplete] = useState(false);
+  const shouldBlockForUnverifiedEmail = verificationSyncComplete && emailVerificationKnown && !isEmailVerified;
   const maxMediaItems = 10;
   const [caption, setCaption] = useState('');
   const [mediaItems, setMediaItems] = useState<{ uri: string; type: 'image' }[]>([]);
@@ -192,18 +201,32 @@ export const CreatePostScreen = () => {
   useFocusEffect(
     React.useCallback(() => {
       let isActive = true;
+
+      if (!authToken) {
+        setVerificationSyncComplete(false);
+        return () => {
+          isActive = false;
+        };
+      }
+
+      setVerificationSyncComplete(isEmailVerified);
+
       api
         .me()
         .then((response) => {
           if (!isActive) return;
           setAuthUser(response.user);
+          setVerificationSyncComplete(true);
         })
-        .catch(() => undefined);
+        .catch(() => {
+          if (!isActive) return;
+          setVerificationSyncComplete(isEmailVerified);
+        });
 
       return () => {
         isActive = false;
       };
-    }, [setAuthUser])
+    }, [authToken, isEmailVerified, setAuthUser])
   );
 
   const toggleTaggedFriend = (userId: number) => {
@@ -361,6 +384,26 @@ export const CreatePostScreen = () => {
         return;
       }
       Alert.alert('Posted', message);
+    },
+    onError: (error) => {
+      if (!(error instanceof ApiError)) {
+        return;
+      }
+
+      const payload = error.payload as { code?: string } | null;
+      if (payload?.code !== 'email_unverified') {
+        return;
+      }
+
+      if (currentUser) {
+        setAuthUser({
+          ...currentUser,
+          email_verified: false,
+          email_verified_at: null,
+        });
+      }
+
+      setVerificationSyncComplete(true);
     },
   });
 
@@ -527,6 +570,7 @@ export const CreatePostScreen = () => {
       ) : null}
       <View style={{ flex: 1 }}>
         <ScrollView
+          keyboardShouldPersistTaps="handled"
           contentContainerStyle={{
             padding: theme.spacing.lg,
             paddingBottom: contentBottomPadding + 70,
@@ -564,7 +608,7 @@ export const CreatePostScreen = () => {
             ) : null}
           </View>
 
-          {!isEmailVerified ? (
+          {shouldBlockForUnverifiedEmail ? (
             <View
               style={{
                 backgroundColor: theme.colors.surface,
@@ -933,7 +977,7 @@ export const CreatePostScreen = () => {
           <Button
             label={postButtonLabel}
             onPress={() => {
-              if (!isEmailVerified) {
+              if (shouldBlockForUnverifiedEmail) {
                 Alert.alert(
                   'Email verification required',
                   'Please verify your email before posting. Use the resend button above if needed.'
@@ -957,5 +1001,3 @@ export const CreatePostScreen = () => {
     </KeyboardAvoidingView>
   );
 };
-
-
