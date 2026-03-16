@@ -1,7 +1,7 @@
 # omsimsocial.com - Laravel backend
 # PHP 8.3 + nginx, multi-stage build with Composer and Vite assets
 
-FROM php:8.3-fpm-alpine AS base
+FROM php:8.5-fpm-alpine AS base
 
 RUN apk add --no-cache \
     libpq-dev \
